@@ -1,4 +1,5 @@
 # Personal Kobo data - never commit
 local_data/
 *.sqlite
+*.sqlite-*
 !tests/fixtures/*.sqlite
