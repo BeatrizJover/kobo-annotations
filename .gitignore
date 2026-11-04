@@ -218,3 +218,8 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Personal Kobo data - never commit
+local_data/
+*.sqlite
+!tests/fixtures/*.sqlite
