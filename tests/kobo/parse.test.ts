@@ -90,14 +90,6 @@ describe('parseKobo rows', () => {
     expect(find('The orchard').note).toBe('');
   });
 
-  it('resolves chapters, including #anchor ContentIDs', () => {
-    expect(find('"Nothing breaks').chapterIndex).toBe(1);
-    expect(find('"Nothing breaks').chapter).toBe('');
-    expect(find('The wind').chapter).toBe('Frost');
-    expect(find('El faro').chapter).toBe('');
-    expect(find('Nadie').chapter).toBe('Medianoche');
-  });
-
   it('maps colours by name', () => {
     expect(library.hasColor).toBe(true);
     expect(find('The orchard').color).toBe('yellow');
@@ -114,6 +106,53 @@ describe('parseKobo rows', () => {
   it('keeps notes typed as notes', () => {
     expect(find('Nadie').type).toBe('note');
     expect(find('Nadie').note).toBe('Nota: revisar; "comillas" incluidas.');
+  });
+});
+
+describe('parseKobo chapters', () => {
+  const chapterOf = (start: string) => {
+    const { chapterNo, chapter } = find(start);
+    return [chapterNo, chapter];
+  };
+
+  it('resolves chapter files, including #anchor ContentIDs', () => {
+    expect(find('"Nothing breaks').chapterIndex).toBe(1);
+    expect(find('The wind').chapterIndex).toBe(2);
+  });
+
+  it('matches a TOC entry by file and anchor', () => {
+    expect(chapterOf('"Nothing breaks')).toEqual([3, 'Second Section']);
+  });
+
+  it('falls back to the first TOC entry of the file', () => {
+    expect(chapterOf('First line')).toEqual([2, 'Interlude']);
+    expect(chapterOf('The orchard')).toEqual([1, 'Seeds']);
+    expect(chapterOf('Nadie')).toEqual([2, 'Medianoche']);
+    expect(chapterOf('هذا')).toEqual([1, 'الفصل الأول']);
+  });
+
+  it('inherits the last TOC entry of an earlier file', () => {
+    expect(chapterOf('The wind')).toEqual([3, 'Second Section']);
+    expect(chapterOf('Light bends')).toEqual([3, 'Second Section']);
+  });
+
+  it('leaves books without a TOC unresolved', () => {
+    expect(chapterOf('Leading space')).toEqual([null, '']);
+    expect(find('Leading space').chapterIndex).toBe(0);
+  });
+
+  it('never uses the chapter file path as a title', () => {
+    expect(library.highlights.filter((h) => /\.x?html/.test(h.chapter))).toEqual([]);
+  });
+
+  it('leaves a highlight before the first TOC entry unresolved', () => {
+    const bytes = withSql(
+      readFixture('KoboReader.sqlite'),
+      "DELETE FROM content WHERE ContentType = '899' AND Title = 'Seeds'",
+    );
+    const counted = parseKobo(SQL, bytes).highlights.find((h) => h.text.startsWith('She counted'));
+    expect(counted?.chapterNo).toBeNull();
+    expect(counted?.chapter).toBe('');
   });
 });
 
@@ -167,6 +206,7 @@ describe('parseKobo unusual values', () => {
     const wind = byText(parseKobo(SQL, bytes).highlights, 'The wind');
     expect(wind?.chapterIndex).toBe(-1);
     expect(wind?.chapter).toBe('');
+    expect(wind?.chapterNo).toBeNull();
   });
 });
 

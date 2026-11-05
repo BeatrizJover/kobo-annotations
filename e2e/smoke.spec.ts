@@ -6,7 +6,7 @@ import { toCsv } from '../src/export/csv';
 import { parseKobo } from '../src/kobo/parse';
 
 const FIXTURE = 'tests/fixtures/KoboReader.sqlite';
-const HEADER = '"Book";"Author";"Chapter";"Highlight";"Note";"Color";"Created"';
+const HEADER = '"Book";"Author";"Chapter No";"Chapter";"Highlight";"Note";"Color";"Date";"Time"';
 
 // Any console error fails the test; CSP violations are logged explicitly, since not every engine reports them.
 async function collectErrors(page: Page): Promise<string[]> {
