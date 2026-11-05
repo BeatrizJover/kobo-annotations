@@ -1,27 +1,11 @@
 import { useMemo, useState } from 'preact/hooks';
 import { csvFilename, filterHighlights, toCsv, type ExportFilter } from '../export/csv';
-import { COLORS, type Color, type Highlight, type KoboLibrary } from '../kobo/types';
+import { COLORS, type Color, type KoboLibrary } from '../kobo/types';
+import { COLOR_LABELS, countByColor, usesColors } from './colors';
 import { downloadText } from './download';
-
-const COLOR_LABELS: Record<Color, string> = {
-  yellow: 'Yellow',
-  pink: 'Pink',
-  blue: 'Blue',
-  green: 'Green',
-};
 
 const plural = (count: number, one: string, many: string) =>
   `${count.toLocaleString()} ${count === 1 ? one : many}`;
-
-function countByColor(highlights: readonly Highlight[]): Record<Color, number> {
-  const counts: Record<Color, number> = { yellow: 0, pink: 0, blue: 0, green: 0 };
-  for (const h of highlights) if (h.color) counts[h.color]++;
-  return counts;
-}
-
-// Devices without colour support store every highlight as yellow, so a lone yellow means no colours.
-const usesColors = ({ hasColor, highlights }: KoboLibrary) =>
-  hasColor && highlights.some((h) => h.color !== null && h.color !== 'yellow');
 
 export function ExportPanel({ library }: { library: KoboLibrary }) {
   const { highlights } = library;
