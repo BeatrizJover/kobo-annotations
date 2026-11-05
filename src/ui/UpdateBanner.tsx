@@ -8,18 +8,22 @@ export function UpdateBanner({ register }: { register: RegisterUpdates }) {
 
   useEffect(() => register((next) => setApply(() => next)), [register]);
 
-  if (!apply) return null;
+  // The live region stays mounted so screen readers announce content added to it.
   return (
-    <div class="update-banner" role="status">
-      <span>A new version of Kobo Annotations is available.</span>
-      <div class="update-actions">
-        <button type="button" class="button" onClick={apply}>
-          Reload
-        </button>
-        <button type="button" class="button-plain" onClick={() => setApply(null)}>
-          Later
-        </button>
-      </div>
+    <div role="status">
+      {apply && (
+        <div class="update-banner">
+          <span>A new version of Kobo Annotations is available.</span>
+          <div class="update-actions">
+            <button type="button" class="button" onClick={apply}>
+              Reload
+            </button>
+            <button type="button" class="button-plain" onClick={() => setApply(null)}>
+              Later
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

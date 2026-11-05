@@ -16,7 +16,7 @@ function setup() {
 describe('UpdateBanner', () => {
   it('stays hidden until a new version is waiting', () => {
     setup();
-    expect(screen.queryByText(/new version/)).toBeNull();
+    expect(screen.getByRole('status').textContent).toBe('');
   });
 
   it('applies the update on Reload', async () => {

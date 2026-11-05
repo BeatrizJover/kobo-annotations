@@ -3,8 +3,8 @@
 Export the highlights from your Kobo e-reader to a CSV file, filtered by highlight color.
 Everything runs in your browser: your reading data never leaves your computer.
 
-Open it at <https://beatrizjover.github.io/kobo-annotations/>. In Chrome or Edge you can
-install it as an app; after the first visit it also works offline.
+Open it at <https://beatrizjover.github.io/kobo-annotations/>. In Chrome, Edge or Safari
+(Add to Dock) you can install it as an app; after the first visit it also works offline.
 
 ## Development
 

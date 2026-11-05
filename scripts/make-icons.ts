@@ -75,7 +75,7 @@ function rasterize(variant: Variant): Buffer {
   const samples = SUPERSAMPLING * SUPERSAMPLING;
   for (let py = 0; py < size; py++) {
     for (let px = 0; px < size; px++) {
-      // Premultiplied sums, so transparent samples don't darken anti-aliased edges.
+      // Colour averages covered samples only, so transparent ones don't darken anti-aliased edges.
       let r = 0;
       let g = 0;
       let b = 0;
