@@ -1,5 +1,6 @@
 import { render } from 'preact';
 import { registerSW } from 'virtual:pwa-register';
+import { createIdbStore } from './store/db';
 import { App } from './ui/App';
 import { UpdateBanner, type RegisterUpdates } from './ui/UpdateBanner';
 import { loadInWorker } from './worker/client';
@@ -15,7 +16,7 @@ if (!root) throw new Error('Missing #app root element');
 render(
   <>
     <UpdateBanner register={registerUpdates} />
-    <App load={loadInWorker} />
+    <App load={loadInWorker} store={createIdbStore()} />
   </>,
   root,
 );

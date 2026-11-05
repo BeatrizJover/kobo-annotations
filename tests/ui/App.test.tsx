@@ -1,13 +1,20 @@
 /// <reference types="node" />
 import { readFileSync } from 'node:fs';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/preact';
+import { IDBFactory } from 'fake-indexeddb';
 import initSqlJs from 'sql.js';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { csvFilename, filterHighlights, toCsv } from '../../src/export/csv';
 import { parseKobo } from '../../src/kobo/parse';
 import { COLORS, type Color, type KoboLibrary } from '../../src/kobo/types';
+import { createIdbStore, StoreError, type HighlightStore } from '../../src/store/db';
 import { App } from '../../src/ui/App';
 import { LoadError, type LoadLibrary, type Phase } from '../../src/worker/protocol';
+
+const { persistStorage } = vi.hoisted(() => ({
+  persistStorage: vi.fn(() => Promise.resolve(true)),
+}));
+vi.mock('../../src/store/persist', () => ({ persistStorage }));
 
 let library: KoboLibrary;
 let noColor: KoboLibrary;
@@ -23,9 +30,16 @@ beforeAll(async () => {
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  persistStorage.mockClear();
 });
 
 const file = () => new File(['x'], 'KoboReader.sqlite');
+
+/** Renders the app with an empty store unless one is given. */
+function start(load: LoadLibrary, store: HighlightStore = createIdbStore(new IDBFactory())) {
+  return render(<App load={load} store={store} />);
+}
+
 const resolving =
   (result: KoboLibrary): LoadLibrary =>
   () =>
@@ -38,7 +52,7 @@ function choose(target = file()) {
 }
 
 async function loaded(result: KoboLibrary) {
-  render(<App load={resolving(result)} />);
+  start(resolving(result));
   choose();
   await screen.findByRole('region', { name: 'Export' });
 }
@@ -54,21 +68,21 @@ const downloadButton = () => screen.getByRole('button', { name: /^Download CSV/ 
 const colorBox = (label: string) => screen.getByRole('checkbox', { name: new RegExp(`^${label}`) });
 
 describe('App', () => {
-  it('renders the title, the privacy promise and the file help', () => {
-    render(<App load={resolving(library)} />);
+  it('renders the title, the privacy promise and the file help', async () => {
+    start(resolving(library));
     screen.getByRole('heading', { level: 1, name: 'Kobo Annotations' });
     screen.getByText(/never leaves this computer/);
     screen.getByText('Where is my file?');
     screen.getByText('KoboReader_20261105.sqlite');
   });
 
-  it('stops the browser from opening files dropped outside the zone, until unmounted', () => {
+  it('stops the browser from opening files dropped outside the zone, until unmounted', async () => {
     const stray = (type: string) => {
       const event = new Event(type, { cancelable: true });
       window.dispatchEvent(event);
       return event.defaultPrevented;
     };
-    const { unmount } = render(<App load={resolving(library)} />);
+    const { unmount } = start(resolving(library));
     expect(stray('dragover')).toBe(true);
     expect(stray('drop')).toBe(true);
     // Preact defers effect cleanups to the next flush; act() forces it.
@@ -84,7 +98,7 @@ describe('App', () => {
       report = onPhase;
       return new Promise((resolve) => (finish = resolve));
     };
-    render(<App load={load} />);
+    start(load);
     choose();
 
     await screen.findByText('Reading the file…');
@@ -102,15 +116,15 @@ describe('App', () => {
 
   it('loads a file dropped on the drop zone', async () => {
     const load = vi.fn<LoadLibrary>(resolving(library));
-    render(<App load={load} />);
+    start(load);
     const dropped = file();
     fireEvent.drop(screen.getByTestId('drop-zone'), { dataTransfer: { files: [dropped] } });
     await screen.findByRole('region', { name: 'Export' });
     expect(load).toHaveBeenCalledWith(dropped, expect.any(Function));
   });
 
-  it('keeps the drop highlight while dragging over child elements', () => {
-    render(<App load={resolving(library)} />);
+  it('keeps the drop highlight while dragging over child elements', async () => {
+    start(resolving(library));
     const zone = screen.getByTestId('drop-zone');
     fireEvent.dragEnter(zone);
     fireEvent.dragEnter(zone.querySelector('label') as Element);
@@ -122,7 +136,7 @@ describe('App', () => {
 
   it('refuses drops while a file is loading', async () => {
     const load = vi.fn<LoadLibrary>(() => new Promise(() => undefined));
-    render(<App load={load} />);
+    start(load);
     choose();
     await screen.findByText('Reading the file…');
 
@@ -237,7 +251,7 @@ describe('App', () => {
   });
 
   it('says so when the file has no highlights', async () => {
-    render(<App load={resolving({ hasColor: true, highlights: [] })} />);
+    start(resolving({ hasColor: true, highlights: [] }));
     choose();
     await screen.findByText('No highlights or notes were found in this file.');
     expect(screen.queryByRole('button', { name: /^Download CSV/ })).toBeNull();
@@ -249,7 +263,7 @@ describe('App', () => {
     ['unreadable', /could not be read/],
     ['unexpected', /Something went wrong/],
   ] as const)('explains the %s error in plain words', async (code, message) => {
-    render(<App load={() => Promise.reject(new LoadError(code))} />);
+    start(() => Promise.reject(new LoadError(code)));
     choose();
     expect((await screen.findByRole('alert')).textContent).toMatch(message);
   });
@@ -259,11 +273,232 @@ describe('App', () => {
       .fn<LoadLibrary>()
       .mockRejectedValueOnce(new Error('boom'))
       .mockResolvedValueOnce(library);
-    render(<App load={load} />);
+    start(load);
     choose();
     expect((await screen.findByRole('alert')).textContent).toMatch(/Something went wrong/);
     choose();
     await screen.findByRole('region', { name: 'Export' });
     await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  });
+});
+
+describe('App saved library', () => {
+  const bookCount = () => new Set(library.highlights.map((h) => h.bookId)).size;
+  const bookTiles = () =>
+    within(screen.getByRole('region', { name: 'Your books' })).getAllByRole('listitem');
+  const tileTexts = () => bookTiles().map((tile) => tile.textContent ?? '');
+
+  async function savedStore() {
+    const store = createIdbStore(new IDBFactory());
+    await store.save(library);
+    return store;
+  }
+
+  it('shows the saved highlights on start, without loading a file', async () => {
+    const load = vi.fn<LoadLibrary>();
+    start(load, await savedStore());
+    await screen.findByRole('region', { name: 'Export' });
+    screen.getByRole('heading', { level: 2, name: 'Your books' });
+    expect(bookTiles()).toHaveLength(bookCount());
+    expect(load).not.toHaveBeenCalled();
+  });
+
+  it('saves an upload so the next visit shows it', async () => {
+    const factory = new IDBFactory();
+    start(resolving(library), createIdbStore(factory));
+    choose();
+    await screen.findByText(/saved in this browser/);
+    cleanup();
+
+    start(resolving(library), createIdbStore(factory));
+    await screen.findByRole('region', { name: 'Export' });
+    expect(bookTiles()).toHaveLength(bookCount());
+  });
+
+  it('lists every book with its count and sorts the mosaic', async () => {
+    start(resolving(library), await savedStore());
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    const ascending = tileTexts();
+    expect(ascending).toHaveLength(bookCount());
+
+    expect(screen.getByRole('radio', { name: 'Title (A–Z)' })).toHaveProperty('checked', true);
+    fireEvent.click(screen.getByRole('radio', { name: 'Title (Z–A)' }));
+    expect(tileTexts()).toEqual([...ascending].reverse());
+
+    const counted = tileTexts().map((text) => Number(/(\d+) highlights?$/.exec(text)?.[1]));
+    expect(counted.reduce((a, b) => a + b, 0)).toBe(library.highlights.length);
+  });
+
+  it('clears the saved data after confirmation', async () => {
+    const store = await savedStore();
+    start(resolving(library), store);
+    fireEvent.click(await screen.findByRole('button', { name: 'Clear saved data' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete saved data' }));
+
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Export' })).toBeNull());
+    expect(screen.queryByRole('heading', { name: 'Your books' })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByLabelText('Choose file'));
+    expect((await store.load()).highlights).toEqual([]);
+  });
+
+  it('keeps the saved data when the confirmation is cancelled', async () => {
+    const store = await savedStore();
+    start(resolving(library), store);
+    fireEvent.click(await screen.findByRole('button', { name: 'Clear saved data' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    screen.getByRole('button', { name: 'Clear saved data' });
+    expect((await store.load()).highlights).toHaveLength(library.highlights.length);
+  });
+
+  it('still exports the upload when saving fails, and says why', async () => {
+    const store: HighlightStore = {
+      ...createIdbStore(new IDBFactory()),
+      save: () => Promise.reject(new StoreError('full')),
+    };
+    start(resolving(library), store);
+    choose();
+    await screen.findByRole('region', { name: 'Export' });
+    expect(screen.getByRole('alert').textContent).toMatch(/no space left/);
+    expect(screen.queryByRole('button', { name: 'Clear saved data' })).toBeNull();
+  });
+
+  it('warns when the browser cannot save, and still loads files', async () => {
+    const unavailable = () => Promise.reject(new StoreError('unavailable'));
+    const store: HighlightStore = { load: unavailable, save: unavailable, clear: unavailable };
+    start(resolving(library), store);
+    expect((await screen.findByRole('alert')).textContent).toMatch(/not saving your highlights/);
+    choose();
+    await screen.findByRole('region', { name: 'Export' });
+  });
+
+  it('lets a file picked before the saved data arrives win over it', async () => {
+    const saved = await (await savedStore()).load();
+    const stale = { ...saved, highlights: saved.highlights.slice(0, 3) };
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const store: HighlightStore = {
+      ...createIdbStore(new IDBFactory()),
+      load: () => gate.then(() => stale),
+    };
+    start(resolving(noColor), store);
+    choose();
+    const found = new RegExp(`^Found ${noColor.highlights.length} highlights`);
+    await screen.findByText(found);
+
+    release();
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    screen.getByText(found);
+  });
+
+  it('asks the browser to keep the data only after a successful save', async () => {
+    start(resolving(library));
+    choose();
+    await screen.findByText(/saved in this browser/);
+    expect(persistStorage).toHaveBeenCalledOnce();
+    cleanup();
+
+    const store: HighlightStore = {
+      ...createIdbStore(new IDBFactory()),
+      save: () => Promise.reject(new StoreError('failed')),
+    };
+    start(resolving(library), store);
+    choose();
+    await screen.findByRole('alert');
+    expect(persistStorage).toHaveBeenCalledOnce();
+  });
+
+  it('still offers to clear earlier data when a later save fails', async () => {
+    const saved = await savedStore();
+    const store: HighlightStore = {
+      ...saved,
+      save: () => Promise.reject(new StoreError('full')),
+    };
+    start(resolving(noColor), store);
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    choose();
+    await screen.findByRole('alert');
+    screen.getByText(/may still hold highlights saved from earlier files/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear saved data' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete saved data' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Clear saved data' })).toBeNull(),
+    );
+    expect((await saved.load()).highlights).toEqual([]);
+  });
+
+  it('offers to clear data restored after a file whose save then fails', async () => {
+    const saved = await savedStore();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const store: HighlightStore = {
+      ...saved,
+      load: () => gate.then(() => saved.load()),
+      save: () => gate.then(() => Promise.reject(new StoreError('full'))),
+    };
+    start(resolving(noColor), store);
+    choose();
+    // Lets the file finish reading while the saved data is still on its way.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    release();
+    await screen.findByRole('alert');
+    await screen.findByRole('button', { name: 'Clear saved data' });
+    screen.getByText(/may still hold highlights saved from earlier files/);
+  });
+
+  it('keeps the library and says so when clearing fails', async () => {
+    const store: HighlightStore = {
+      ...(await savedStore()),
+      clear: () => Promise.reject(new StoreError('failed')),
+    };
+    start(resolving(library), store);
+    fireEvent.click(await screen.findByRole('button', { name: 'Clear saved data' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete saved data' }));
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/could not be read or updated/);
+    screen.getByRole('heading', { level: 2, name: 'Your books' });
+    screen.getByRole('button', { name: 'Clear saved data' });
+  });
+
+  it('shows the saved library when it arrives after a file failed to load', async () => {
+    const saved = await savedStore();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const store: HighlightStore = { ...saved, load: () => gate.then(() => saved.load()) };
+    start(() => Promise.reject(new LoadError('not-sqlite')), store);
+    choose();
+    await screen.findByRole('alert');
+    release();
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+  });
+
+  it('moves keyboard focus through the clear confirmation', async () => {
+    start(resolving(library), await savedStore());
+    fireEvent.click(await screen.findByRole('button', { name: 'Clear saved data' }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' })),
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Clear saved data' })),
+    );
+  });
+
+  it('cannot clear while a file is loading', async () => {
+    start(() => new Promise(() => undefined), await savedStore());
+    const clearButton = await screen.findByRole('button', { name: 'Clear saved data' });
+    choose();
+    await screen.findByText('Reading the file…');
+    expect(clearButton).toHaveProperty('disabled', true);
+  });
+
+  it('keeps showing the saved library when a new file fails to load', async () => {
+    start(() => Promise.reject(new LoadError('not-sqlite')), await savedStore());
+    await screen.findByRole('region', { name: 'Export' });
+    choose();
+    expect((await screen.findByRole('alert')).textContent).toMatch(/is not a Kobo database/);
+    screen.getByRole('region', { name: 'Export' });
+    screen.getByRole('heading', { level: 2, name: 'Your books' });
   });
 });
