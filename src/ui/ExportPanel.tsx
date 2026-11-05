@@ -44,16 +44,9 @@ export function ExportPanel({ library, onShowBooks }: ExportPanelProps) {
         >
           Download CSV
         </button>
-        <a
-          href="#library-title"
-          class="link-down"
-          onClick={(event) => {
-            event.preventDefault();
-            onShowBooks();
-          }}
-        >
+        <button type="button" class="link-down" onClick={onShowBooks}>
           Check it here <span aria-hidden="true">↓</span>
-        </a>
+        </button>
       </div>
     </section>
   );

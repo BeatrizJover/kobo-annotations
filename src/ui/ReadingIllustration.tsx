@@ -1,13 +1,7 @@
 // Original artwork; fills and strokes come from the illustration tokens via app.css classes.
 export function ReadingIllustration() {
   return (
-    <svg
-      class="illustration"
-      viewBox="0 0 360 280"
-      aria-hidden="true"
-      focusable="false"
-      data-testid="illustration"
-    >
+    <svg class="illustration" viewBox="0 0 360 280" aria-hidden="true" focusable="false">
       <path
         class="ill-cream"
         d="M62 72C112 22 258 18 308 66C352 112 344 214 282 244C212 272 112 268 60 236C18 208 14 116 62 72Z"

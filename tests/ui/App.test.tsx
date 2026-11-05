@@ -78,10 +78,10 @@ describe('App', () => {
   });
 
   it('puts the file help right below the drop zone, next to a hidden illustration', () => {
-    start(resolving(library));
+    const { container } = start(resolving(library));
     const zone = screen.getByTestId('drop-zone');
     expect(zone.nextElementSibling).toBe(screen.getByText('Where is my file?').closest('details'));
-    expect(screen.getByTestId('illustration').getAttribute('aria-hidden')).toBe('true');
+    expect(container.querySelector('svg.illustration')?.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('stops the browser from opening files dropped outside the zone, until unmounted', async () => {
@@ -364,7 +364,7 @@ describe('App saved library', () => {
     fireEvent.click(await screen.findByRole('button', { name: /^The Glass Orchard/ }));
     expect(screen.queryByRole('region', { name: 'Your books' })).toBeNull();
 
-    fireEvent.click(screen.getByRole('link', { name: /^Check it here/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^Check it here/ }));
     await waitFor(() =>
       expect(document.activeElement).toBe(
         screen.getByRole('heading', { level: 2, name: 'Your books' }),
@@ -385,12 +385,40 @@ describe('App saved library', () => {
     expect(title.getAttribute('aria-expanded')).toBe('true');
     fireEvent.focusOut(option, { relatedTarget: downloadButton() });
     expect(title.getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.click(title);
+    const next = within(sortGroup()).getByRole('button', { name: 'Z–A' });
+    fireEvent.focusOut(next, { relatedTarget: sortField('Author') });
+    expect(title.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('closes the sort options with Escape even when no sort button has focus', async () => {
+    start(resolving(library), await savedStore());
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    const author = sortField('Author');
+    fireEvent.click(author);
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(author.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(author);
+  });
+
+  it.each([
+    [false, 'smooth'],
+    [true, 'auto'],
+  ] as const)('scrolls to the books with reduced motion %s as %s', async (reduce, behavior) => {
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query) => ({ matches: reduce && query.includes('reduce'), media: query }) as MediaQueryList,
+    );
+    const scrolled = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
+    start(resolving(library), await savedStore());
+    fireEvent.click(await screen.findByRole('button', { name: /^Check it here/ }));
+    await waitFor(() => expect(scrolled).toHaveBeenCalledWith({ behavior, block: 'start' }));
   });
 
   it('does not jump to the books again after a clear and a new file', async () => {
     const scrolled = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
     start(resolving(library), await savedStore());
-    fireEvent.click(await screen.findByRole('link', { name: /^Check it here/ }));
+    fireEvent.click(await screen.findByRole('button', { name: /^Check it here/ }));
     await waitFor(() => expect(scrolled).toHaveBeenCalledOnce());
 
     fireEvent.click(screen.getByRole('button', { name: 'Clear saved data' }));

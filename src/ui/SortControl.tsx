@@ -1,14 +1,14 @@
-import { useEffect, useRef, useState } from 'preact/hooks';
-import type { BookSort } from '../kobo/books';
+import { useEffect, useId, useRef, useState } from 'preact/hooks';
+import {
+  SORT_DIRECTIONS,
+  SORT_FIELDS,
+  type BookSort,
+  type SortDirection,
+  type SortField,
+} from '../kobo/books';
 
-const FIELDS = ['title', 'author'] as const;
-const DIRECTIONS = ['asc', 'desc'] as const;
-
-type Field = (typeof FIELDS)[number];
-type Direction = (typeof DIRECTIONS)[number];
-
-const FIELD_LABELS: Record<Field, string> = { title: 'Title', author: 'Author' };
-const DIRECTION_LABELS: Record<Direction, string> = { asc: 'A–Z', desc: 'Z–A' };
+const FIELD_LABELS: Record<SortField, string> = { title: 'Title', author: 'Author' };
+const DIRECTION_LABELS: Record<SortDirection, string> = { asc: 'A–Z', desc: 'Z–A' };
 
 interface SortControlProps {
   sort: BookSort;
@@ -16,50 +16,56 @@ interface SortControlProps {
 }
 
 export function SortControl({ sort, onSort }: SortControlProps) {
-  const [open, setOpen] = useState<Field | null>(null);
+  const id = useId();
+  const [open, setOpen] = useState<SortField | null>(null);
   const root = useRef<HTMLDivElement>(null);
-  const fieldButtons = useRef<Partial<Record<Field, HTMLButtonElement | null>>>({});
-  const [activeField, activeDirection] = sort.split('-') as [Field, Direction];
+  const fieldButtons = useRef<Partial<Record<SortField, HTMLButtonElement | null>>>({});
 
+  const close = (field: SortField) => {
+    setOpen(null);
+    fieldButtons.current[field]?.focus();
+  };
+
+  // Listens on the document because Safari doesn't focus a clicked button, so keys never reach it.
   useEffect(() => {
     if (!open) return;
     const closeOutside = (event: PointerEvent) => {
       if (!root.current?.contains(event.target as Node)) setOpen(null);
     };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== 'Escape') return;
+      event.preventDefault();
+      close(open);
+    };
     document.addEventListener('pointerdown', closeOutside);
-    return () => document.removeEventListener('pointerdown', closeOutside);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOutside);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
   }, [open]);
 
-  const close = (field: Field) => {
-    setOpen(null);
-    fieldButtons.current[field]?.focus();
-  };
-
   return (
-    <div
-      ref={root}
-      class="sort"
-      role="group"
-      aria-labelledby="sort-label"
-      onKeyDown={(event) => {
-        if (event.key !== 'Escape' || !open) return;
-        event.preventDefault();
-        close(open);
-      }}
-      onFocusOut={(event) => {
-        // A null target means a click on nothing focusable, which the pointer listener handles.
-        const next = event.relatedTarget as Node | null;
-        if (next && !root.current?.contains(next)) setOpen(null);
-      }}
-    >
-      <span id="sort-label" class="sort-label">
+    <div ref={root} class="sort" role="group" aria-labelledby={`${id}-label`}>
+      <span id={`${id}-label`} class="sort-label">
         Sort by
       </span>
-      {FIELDS.map((field) => {
-        const active = field === activeField;
+      {SORT_FIELDS.map((field) => {
+        const active = SORT_DIRECTIONS.find((direction) => sort === `${field}-${direction}`);
         const expanded = open === field;
+        const optionsId = `${id}-${field}`;
         return (
-          <div key={field} class="sort-item">
+          <div
+            key={field}
+            class="sort-item"
+            onFocusOut={(event) => {
+              // A null target means a click on nothing focusable, which the pointer listener handles.
+              const next = event.relatedTarget as Node | null;
+              if (next && !event.currentTarget.contains(next)) {
+                setOpen((current) => (current === field ? null : current));
+              }
+            }}
+          >
             <button
               ref={(element) => {
                 fieldButtons.current[field] = element;
@@ -67,25 +73,25 @@ export function SortControl({ sort, onSort }: SortControlProps) {
               type="button"
               class={active ? 'sort-field is-active' : 'sort-field'}
               aria-expanded={expanded}
-              aria-controls={expanded ? `sort-${field}` : undefined}
+              aria-controls={expanded ? optionsId : undefined}
               onClick={() => setOpen(expanded ? null : field)}
             >
               {FIELD_LABELS[field]}
-              {active && <span class="sort-direction"> {DIRECTION_LABELS[activeDirection]}</span>}
+              {active && <span class="sort-direction"> {DIRECTION_LABELS[active]}</span>}
             </button>
             {expanded && (
               <div
-                id={`sort-${field}`}
+                id={optionsId}
                 class="sort-options"
                 role="group"
                 aria-label={`${FIELD_LABELS[field]} order`}
               >
-                {DIRECTIONS.map((direction) => (
+                {SORT_DIRECTIONS.map((direction) => (
                   <button
                     key={direction}
                     type="button"
                     class="sort-option"
-                    aria-pressed={active && direction === activeDirection}
+                    aria-pressed={active === direction}
                     onClick={() => {
                       onSort(`${field}-${direction}`);
                       close(field);
