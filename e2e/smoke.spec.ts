@@ -13,7 +13,11 @@ async function collectErrors(page: Page): Promise<string[]> {
   const errors: string[] = [];
   await page.addInitScript(() => {
     document.addEventListener('securitypolicyviolation', (event) => {
-      console.error(`CSP violation: ${event.violatedDirective} ${event.blockedURI}`);
+      const source = event.target instanceof Element ? event.target : null;
+      const where = source ? ` on <${source.localName} class="${source.className}">` : '';
+      console.error(
+        `CSP violation: ${event.violatedDirective} ${event.blockedURI}${where} ${event.sample}`,
+      );
     });
   });
   page.on('console', (message) => {
