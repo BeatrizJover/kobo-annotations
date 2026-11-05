@@ -16,7 +16,9 @@ test('keeps the highlights across visits until the saved data is cleared', async
   expect(count).toBeGreaterThan(1);
 
   const ascending = await books.allTextContents();
-  await page.getByRole('radio', { name: 'Title (Z–A)' }).check();
+  const sort = page.getByRole('group', { name: 'Sort by' });
+  await sort.getByRole('button', { name: /^Title/ }).click();
+  await sort.getByRole('button', { name: 'Z–A' }).click();
   await expect(books).toHaveText([...ascending].reverse());
 
   await page.reload();

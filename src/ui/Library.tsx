@@ -1,14 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { BOOK_SORTS, listBooks, sortBooks, type BookSort } from '../kobo/books';
+import { listBooks, sortBooks, type BookSort } from '../kobo/books';
 import type { KoboLibrary } from '../kobo/types';
 import { bookHistory } from '../store/history';
-
-const SORT_LABELS: Record<BookSort, string> = {
-  'title-asc': 'Title (A–Z)',
-  'title-desc': 'Title (Z–A)',
-  'author-asc': 'Author (A–Z)',
-  'author-desc': 'Author (Z–A)',
-};
+import { SortControl } from './SortControl';
 
 interface LibraryProps {
   library: KoboLibrary;
@@ -16,10 +10,12 @@ interface LibraryProps {
   hidden: boolean;
   /** Whether to refocus the last opened tile when shown again, i.e. after Back. */
   restoreFocus: boolean;
+  /** Changes each time the user asks to see the books, which scrolls to and focuses the heading. */
+  reveal: number;
   onOpen: (bookId: string) => void;
 }
 
-export function Library({ library, hidden, restoreFocus, onOpen }: LibraryProps) {
+export function Library({ library, hidden, restoreFocus, reveal, onOpen }: LibraryProps) {
   const [sort, setSort] = useState<BookSort>('title-asc');
   const books = useMemo(() => listBooks(library.highlights), [library]);
   const history = useMemo(() => bookHistory(library), [library]);
@@ -34,6 +30,13 @@ export function Library({ library, hidden, restoreFocus, onOpen }: LibraryProps)
     else heading.current?.focus();
   }, [hidden, restoreFocus, library]);
 
+  useEffect(() => {
+    if (reveal === 0 || !heading.current) return;
+    const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    heading.current.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
+    heading.current.focus({ preventScroll: true });
+  }, [reveal]);
+
   if (books.length === 0) return null;
 
   return (
@@ -41,21 +44,7 @@ export function Library({ library, hidden, restoreFocus, onOpen }: LibraryProps)
       <h2 id="library-title" ref={heading} tabIndex={-1}>
         Your books
       </h2>
-      {/* Radios, not a <select>: WebKit styles its select inline, which the CSP blocks. */}
-      <fieldset class="filters">
-        <legend>Sort by</legend>
-        {BOOK_SORTS.map((option) => (
-          <label key={option} class="check">
-            <input
-              type="radio"
-              name="book-sort"
-              checked={sort === option}
-              onChange={() => setSort(option)}
-            />
-            {SORT_LABELS[option]}
-          </label>
-        ))}
-      </fieldset>
+      <SortControl sort={sort} onSort={setSort} />
       {/* Safari drops list semantics when list-style is none. */}
       <ul class="book-grid" role="list">
         {sorted.map((book) => {
