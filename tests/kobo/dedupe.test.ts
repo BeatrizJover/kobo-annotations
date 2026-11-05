@@ -36,6 +36,16 @@ describe('dedupeBooks', () => {
     expect(bookIds(dedupeBooks(input))).toEqual(new Set([STORE]));
   });
 
+  it('matches copies whose highlights only collide when joined with commas', () => {
+    const input = [
+      make(STORE, 'a,b'),
+      make(STORE, 'a', { note: 'b,' }),
+      make(SIDELOAD_A, 'a', { note: 'b,' }),
+      make(SIDELOAD_A, 'a,b'),
+    ];
+    expect(bookIds(dedupeBooks(input))).toEqual(new Set([STORE]));
+  });
+
   it('keeps the lowest VolumeID between two sideloaded copies', () => {
     const input = [make(SIDELOAD_B, 'one'), make(SIDELOAD_A, 'one')];
     expect(bookIds(dedupeBooks(input))).toEqual(new Set([SIDELOAD_A]));

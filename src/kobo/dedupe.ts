@@ -9,7 +9,7 @@ function preferred(a: string, b: string): string {
 }
 
 function signature(highlights: Highlight[]): string {
-  return JSON.stringify(highlights.map((h) => [h.text, h.note, h.color]).sort());
+  return JSON.stringify(highlights.map((h) => JSON.stringify([h.text, h.note, h.color])).sort());
 }
 
 /** Drops copies of a book: same title, author and exported highlights under another VolumeID. */

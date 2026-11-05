@@ -5,20 +5,18 @@ import { COLORS, type Color, type Highlight, type KoboLibrary } from './types';
 
 const SQLITE_MAGIC = 'SQLite format 3\0';
 
-const REQUIRED_COLUMNS: Record<string, string[]> = {
-  bookmark: [
-    'BookmarkID',
-    'VolumeID',
-    'ContentID',
-    'Text',
-    'Annotation',
-    'DateCreated',
-    'ChapterProgress',
-    'Hidden',
-    'Type',
-  ],
-  content: ['ContentID', 'Title', 'Attribution', 'VolumeIndex'],
-};
+const BOOKMARK_COLUMNS = [
+  'bookmarkid',
+  'volumeid',
+  'contentid',
+  'text',
+  'annotation',
+  'datecreated',
+  'chapterprogress',
+  'hidden',
+  'type',
+];
+const CONTENT_COLUMNS = ['contentid', 'title', 'attribution', 'volumeindex'];
 
 const SOFT_HYPHEN = /\u00AD/g;
 
@@ -32,9 +30,12 @@ function hasSqliteHeader(bytes: Uint8Array): boolean {
   return true;
 }
 
-function columnsOf(db: Database, table: string): Set<string> {
+/** Returns the table's lower-cased column names, or throws `not-kobo` if any required one is missing. */
+function requireColumns(db: Database, table: string, required: string[]): Set<string> {
   const [result] = db.exec(`SELECT lower(name) FROM pragma_table_info('${table}')`);
-  return new Set(result?.values.map(([name]) => String(name)));
+  const found = new Set(result?.values.map(([name]) => String(name)));
+  if (!required.every((name) => found.has(name))) throw new KoboError('not-kobo');
+  return found;
 }
 
 const text = (value: Cell): string => (typeof value === 'string' ? value : '');
@@ -100,8 +101,9 @@ function readHighlights(db: Database, hasColor: boolean): Highlight[] {
   return highlights;
 }
 
+const byString = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
+
 function compareHighlights(collator: Intl.Collator) {
-  const byString = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
   return (a: Highlight, b: Highlight): number =>
     collator.compare(a.book, b.book) ||
     collator.compare(a.author, b.author) ||
@@ -113,13 +115,8 @@ function compareHighlights(collator: Intl.Collator) {
 }
 
 function readLibrary(db: Database): KoboLibrary {
-  const columns: Record<string, Set<string>> = {};
-  for (const [table, required] of Object.entries(REQUIRED_COLUMNS)) {
-    const found = columnsOf(db, table);
-    if (!required.every((name) => found.has(name.toLowerCase()))) throw new KoboError('not-kobo');
-    columns[table] = found;
-  }
-  const hasColor = columns.bookmark?.has('color') ?? false;
+  requireColumns(db, 'content', CONTENT_COLUMNS);
+  const hasColor = requireColumns(db, 'bookmark', BOOKMARK_COLUMNS).has('color');
 
   const highlights = dedupeBooks(readHighlights(db, hasColor));
   const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
