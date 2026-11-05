@@ -9,9 +9,6 @@ const SORT_LABELS: Record<BookSort, string> = {
   'author-desc': 'Author (Z–A)',
 };
 
-const isBookSort = (value: string): value is BookSort =>
-  (BOOK_SORTS as readonly string[]).includes(value);
-
 export function Library({ highlights }: { highlights: readonly Highlight[] }) {
   const [sort, setSort] = useState<BookSort>('title-asc');
   const books = useMemo(() => listBooks(highlights), [highlights]);
@@ -21,25 +18,22 @@ export function Library({ highlights }: { highlights: readonly Highlight[] }) {
 
   return (
     <section class="library" aria-labelledby="library-title">
-      <div class="library-header">
-        <h2 id="library-title">Your books</h2>
-        <label class="sort">
-          Sort by
-          <select
-            value={sort}
-            onChange={(event) => {
-              const { value } = event.currentTarget;
-              if (isBookSort(value)) setSort(value);
-            }}
-          >
-            {BOOK_SORTS.map((option) => (
-              <option key={option} value={option}>
-                {SORT_LABELS[option]}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+      <h2 id="library-title">Your books</h2>
+      {/* Radios, not a <select>: WebKit styles its select inline, which the CSP blocks. */}
+      <fieldset class="filters">
+        <legend>Sort by</legend>
+        {BOOK_SORTS.map((option) => (
+          <label key={option} class="check">
+            <input
+              type="radio"
+              name="book-sort"
+              checked={sort === option}
+              onChange={() => setSort(option)}
+            />
+            {SORT_LABELS[option]}
+          </label>
+        ))}
+      </fieldset>
       {/* Safari drops list semantics when list-style is none. */}
       <ul class="book-grid" role="list">
         {sorted.map((book) => (

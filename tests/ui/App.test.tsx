@@ -321,9 +321,8 @@ describe('App saved library', () => {
     const ascending = tileTexts();
     expect(ascending).toHaveLength(bookCount());
 
-    fireEvent.change(screen.getByRole('combobox', { name: 'Sort by' }), {
-      target: { value: 'title-desc' },
-    });
+    expect(screen.getByRole('radio', { name: 'Title (A–Z)' })).toHaveProperty('checked', true);
+    fireEvent.click(screen.getByRole('radio', { name: 'Title (Z–A)' }));
     expect(tileTexts()).toEqual([...ascending].reverse());
 
     const counted = tileTexts().map((text) => Number(/(\d+) highlights?$/.exec(text)?.[1]));

@@ -5,12 +5,19 @@ const FIXTURE = 'tests/fixtures/KoboReader.sqlite';
 test('keeps the highlights across visits until the saved data is cleared', async ({ page }) => {
   const errors: string[] = [];
   page.on('pageerror', (error) => errors.push(error.message));
+  page.on('console', (message) => {
+    if (message.type() === 'error') errors.push(message.text());
+  });
   await page.goto('./');
   await page.getByLabel('Choose file').setInputFiles(FIXTURE);
   const books = page.getByRole('region', { name: 'Your books' }).getByRole('listitem');
   await expect(books.first()).toBeVisible();
   const count = await books.count();
   expect(count).toBeGreaterThan(1);
+
+  const ascending = await books.allTextContents();
+  await page.getByRole('radio', { name: 'Title (Z–A)' }).check();
+  expect(await books.allTextContents()).toEqual([...ascending].reverse());
 
   await page.reload();
   await expect(page.getByText(/^Found .+ highlights in .+ books\.$/)).toBeVisible();
