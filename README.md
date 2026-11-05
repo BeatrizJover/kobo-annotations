@@ -7,12 +7,13 @@ Everything runs in your browser: your reading data never leaves your computer.
 
 ## Development
 
-Requires Node.js 22 (see `.nvmrc`).
+Requires Node.js 22.18 or later (see `.nvmrc`).
 
 ```sh
 npm ci
 npm run dev        # local dev server
 npm run build      # production build in dist/
+npm run fixture    # regenerate the synthetic test databases in tests/fixtures/
 ```
 
 Checks run in CI on every pull request:
