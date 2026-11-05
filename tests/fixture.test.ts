@@ -62,11 +62,11 @@ const EDGE_CASES: [string, string][] = [
      WHERE a.ContentType = '6' AND b.ContentType = '6'
        AND EXISTS (SELECT 1 FROM Bookmark WHERE VolumeID = a.ContentID AND ${EXPORTED})
        AND NOT EXISTS (
-         SELECT Text, Color FROM Bookmark WHERE VolumeID = a.ContentID AND ${EXPORTED}
-         EXCEPT SELECT Text, Color FROM Bookmark WHERE VolumeID = b.ContentID AND ${EXPORTED})
+         SELECT Text, Annotation, Color FROM Bookmark WHERE VolumeID = a.ContentID AND ${EXPORTED}
+         EXCEPT SELECT Text, Annotation, Color FROM Bookmark WHERE VolumeID = b.ContentID AND ${EXPORTED})
        AND NOT EXISTS (
-         SELECT Text, Color FROM Bookmark WHERE VolumeID = b.ContentID AND ${EXPORTED}
-         EXCEPT SELECT Text, Color FROM Bookmark WHERE VolumeID = a.ContentID AND ${EXPORTED})`,
+         SELECT Text, Annotation, Color FROM Bookmark WHERE VolumeID = b.ContentID AND ${EXPORTED}
+         EXCEPT SELECT Text, Annotation, Color FROM Bookmark WHERE VolumeID = a.ContentID AND ${EXPORTED})`,
   ],
   [
     'highlights on both sides of UTC midnight',

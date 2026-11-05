@@ -30,6 +30,8 @@ interface Mark {
 }
 
 const SIDELOAD = 'file:///mnt/onboard/Synthetic/';
+const STORE_ID = '0b7e4c2a-5d1f-4e8a-9c3b-6a2d8f1e0c47';
+const DUPLICATE_ID = `${SIDELOAD}Eva Rumbo - El Faro Apagado.kepub.epub`;
 
 const BOOKS: Book[] = [
   {
@@ -58,7 +60,7 @@ const BOOKS: Book[] = [
     chapters: [{ file: 'Text/intro.xhtml', title: 'Introduction' }],
   },
   {
-    id: '0b7e4c2a-5d1f-4e8a-9c3b-6a2d8f1e0c47',
+    id: STORE_ID,
     title: 'El Faro Apagado',
     author: 'Eva Rumbo',
     language: 'es',
@@ -76,7 +78,7 @@ const BOOKS: Book[] = [
   },
   // A sideloaded copy of the store book above, given the same highlights below.
   {
-    id: `${SIDELOAD}Eva Rumbo - El Faro Apagado.kepub.epub`,
+    id: DUPLICATE_ID,
     title: 'El Faro Apagado',
     author: 'Eva Rumbo',
     language: 'es',
@@ -258,9 +260,15 @@ const MARKS: Mark[] = [
   },
 ];
 
+const storeBook = BOOKS.findIndex((book) => book.id === STORE_ID);
+const duplicateBook = BOOKS.findIndex((book) => book.id === DUPLICATE_ID);
+
 const ALL_MARKS: Mark[] = [
   ...MARKS,
-  ...MARKS.filter((mark) => mark.book === 3).map((mark) => ({ ...mark, book: 5 })),
+  ...MARKS.filter((mark) => mark.book === storeBook).map((mark) => ({
+    ...mark,
+    book: duplicateBook,
+  })),
 ];
 
 const USER_ID = 'synthetic-user';
