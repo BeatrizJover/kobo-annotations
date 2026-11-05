@@ -1,12 +1,12 @@
 // @vitest-environment node
 /// <reference types="node" />
 import { readFileSync } from 'node:fs';
-import { IDBFactory } from 'fake-indexeddb';
+import { forceCloseDatabase, IDBFactory, IDBObjectStore } from 'fake-indexeddb';
 import initSqlJs from 'sql.js';
-import { beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { parseKobo } from '../../src/kobo/parse';
 import type { Highlight, KoboLibrary } from '../../src/kobo/types';
-import { createIdbStore, StoreError, type HighlightStore } from '../../src/store/db';
+import { createIdbStore, StoreError, toStoreError, type HighlightStore } from '../../src/store/db';
 
 let library: KoboLibrary;
 let noColor: KoboLibrary;
@@ -24,6 +24,10 @@ beforeAll(async () => {
 beforeEach(() => {
   factory = new IDBFactory();
   store = createIdbStore(factory);
+});
+
+afterEach(() => {
+  vi.restoreAllMocks();
 });
 
 const EMPTY = { highlights: [], hasColor: false, imports: [] };
@@ -90,6 +94,64 @@ describe('createIdbStore', () => {
     const broken = { ...library.highlights[0], id: undefined } as unknown as Highlight;
     expect(await storeErrorCode(store.save({ ...library, highlights: [broken] }))).toBe('failed');
     expect(await store.load()).toEqual(before);
+  });
+
+  it('rolls back a save whose write fails after the merge', async () => {
+    const before = await store.save(library);
+    // Reuses import id 1, so the add fails asynchronously once the merge has returned.
+    const add = IDBObjectStore.prototype.add;
+    vi.spyOn(IDBObjectStore.prototype, 'add').mockImplementation(function (
+      this: IDBObjectStore,
+      value: unknown,
+      key?: IDBValidKey,
+    ) {
+      return add.call(this, { ...(value as object), id: 1 }, key);
+    });
+    const error: unknown = await store.save(noColor).catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(StoreError);
+    expect((error as StoreError).code).toBe('failed');
+    expect((error as StoreError).cause).toMatchObject({ name: 'ConstraintError' });
+
+    vi.restoreAllMocks();
+    expect(await store.load()).toEqual(before);
+  });
+
+  it('tells a full disk apart from other failures', () => {
+    expect(toStoreError(new DOMException('', 'QuotaExceededError')).code).toBe('full');
+    expect(toStoreError(new DOMException('', 'AbortError')).code).toBe('failed');
+    expect(toStoreError(new Error('boom')).code).toBe('failed');
+    const unavailable = new StoreError('unavailable');
+    expect(toStoreError(unavailable)).toBe(unavailable);
+  });
+
+  it('reopens after the browser closes the connection', async () => {
+    const open = factory.open.bind(factory);
+    const connections: IDBDatabase[] = [];
+    vi.spyOn(factory, 'open').mockImplementation((name, version) => {
+      const req = open(name, version);
+      req.addEventListener('success', () => connections.push(req.result));
+      return req;
+    });
+    const saved = await store.save(library);
+    const [first] = connections;
+    if (!first) throw new Error('no connection opened');
+    // fake-indexeddb types the parameter as the class instead of an instance.
+    forceCloseDatabase(first as unknown as typeof IDBDatabase);
+
+    expect(await store.load()).toEqual(saved);
+    expect(connections).toHaveLength(2);
+  });
+
+  it('lets another tab upgrade the schema, then reports itself unavailable', async () => {
+    await store.save(library);
+    const upgrade = factory.open('kobo-annotations', 2);
+    const newer = await new Promise<IDBDatabase>((resolve, reject) => {
+      upgrade.onsuccess = () => resolve(upgrade.result);
+      upgrade.onerror = () => reject(upgrade.error ?? new Error('upgrade failed'));
+      upgrade.onblocked = () => reject(new Error('blocked'));
+    });
+    newer.close();
+    expect(await storeErrorCode(store.load())).toBe('unavailable');
   });
 
   it('reports a browser without IndexedDB as unavailable', async () => {

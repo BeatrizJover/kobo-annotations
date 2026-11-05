@@ -135,7 +135,7 @@ const compareHighlights = (a: Highlight, b: Highlight): number =>
   byString(a.created, b.created) ||
   byString(a.id, b.id);
 
-/** Sorts in place in export order: book, chapter file, position, creation date. */
+/** Sorts in place in export order: book, chapter, position, creation date. */
 export function sortHighlights<T extends Highlight>(highlights: T[]): T[] {
   return highlights.sort(compareHighlights);
 }

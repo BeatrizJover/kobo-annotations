@@ -38,11 +38,18 @@ const request = <T>(req: IDBRequest<T>) =>
 const completion = (tx: IDBTransaction) =>
   new Promise<void>((resolve, reject) => {
     tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error ?? new Error('IndexedDB transaction failed'));
+    // tx.error is still null while a failed request's error event bubbles up.
+    tx.onerror = (event) =>
+      reject(
+        (event.target as IDBRequest | null)?.error ??
+          tx.error ??
+          new Error('IndexedDB transaction failed'),
+      );
     tx.onabort = () => reject(tx.error ?? new Error('IndexedDB transaction aborted'));
   });
 
-const toStoreError = (cause: unknown) =>
+/** Wraps any failure as a `StoreError`, telling a full disk apart from other failures. */
+export const toStoreError = (cause: unknown) =>
   cause instanceof StoreError
     ? cause
     : new StoreError(
@@ -50,7 +57,7 @@ const toStoreError = (cause: unknown) =>
         { cause },
       );
 
-function open(factory: IDBFactory): Promise<IDBDatabase> {
+function open(factory: IDBFactory, onClose: () => void): Promise<IDBDatabase> {
   const req = factory.open(DB_NAME, DB_VERSION);
   req.onupgradeneeded = () => {
     const db = req.result;
@@ -61,9 +68,17 @@ function open(factory: IDBFactory): Promise<IDBDatabase> {
       db.createObjectStore(IMPORTS, { keyPath: 'id' });
     }
   };
-  return request(req).then((db) => {
+  const blocked = new Promise<never>((_, reject) => {
+    req.onblocked = () => reject(new Error('IndexedDB upgrade blocked by another tab'));
+  });
+  return Promise.race([request(req), blocked]).then((db) => {
     // Lets a newer version of the app, open in another tab, upgrade the schema.
-    db.onversionchange = () => db.close();
+    db.onversionchange = () => {
+      db.close();
+      onClose();
+    };
+    // Fires when the browser closes the connection, e.g. after the user clears site data.
+    db.onclose = onClose;
     return db;
   });
 }
@@ -72,14 +87,23 @@ function open(factory: IDBFactory): Promise<IDBDatabase> {
 export function createIdbStore(factory?: IDBFactory): HighlightStore {
   let connection: Promise<IDBDatabase> | undefined;
 
+  // Drops a closed or failed connection so the next call reopens, unless a newer one replaced it.
+  const forget = (stale: Promise<IDBDatabase>) => {
+    if (connection === stale) connection = undefined;
+  };
+
   const connect = () => {
+    if (connection) return connection;
     const idb = factory ?? (typeof indexedDB === 'undefined' ? undefined : indexedDB);
     if (!idb) return Promise.reject(new StoreError('unavailable'));
-    connection ??= open(idb).catch((cause: unknown) => {
-      connection = undefined;
-      throw new StoreError('unavailable', { cause });
-    });
-    return connection;
+    const current: Promise<IDBDatabase> = open(idb, () => forget(current)).catch(
+      (cause: unknown) => {
+        forget(current);
+        throw new StoreError('unavailable', { cause });
+      },
+    );
+    connection = current;
+    return current;
   };
 
   async function run<T>(mode: IDBTransactionMode, work: (tx: IDBTransaction) => Promise<T>) {
