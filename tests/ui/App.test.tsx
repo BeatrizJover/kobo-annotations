@@ -59,6 +59,7 @@ describe('App', () => {
     screen.getByRole('heading', { level: 1, name: 'Kobo Annotations' });
     screen.getByText(/never leaves this computer/);
     screen.getByText('Where is my file?');
+    screen.getByText('KoboReader_20261105.sqlite');
   });
 
   it('stops the browser from opening files dropped outside the zone, until unmounted', () => {
