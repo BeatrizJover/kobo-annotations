@@ -1,6 +1,10 @@
 import preact from '@preact/preset-vite';
 import type { Plugin } from 'vite';
+import { VitePWA } from 'vite-plugin-pwa';
 import { defineConfig } from 'vitest/config';
+import { themeColor } from './scripts/theme-tokens.ts';
+
+const BASE = '/kobo-annotations/';
 
 const CSP = [
   "default-src 'self'",
@@ -24,9 +28,42 @@ const cspMeta = (): Plugin => ({
   ],
 });
 
+const pwa = VitePWA({
+  registerType: 'prompt',
+  injectRegister: false,
+  includeAssets: ['icons/favicon-32.png', 'icons/apple-touch-icon.png'],
+  manifest: {
+    id: BASE,
+    name: 'Kobo Annotations',
+    short_name: 'Kobo Annotations',
+    description: 'Export your Kobo highlights to CSV, entirely in your browser.',
+    lang: 'en',
+    start_url: BASE,
+    scope: BASE,
+    display: 'standalone',
+    theme_color: themeColor('color-accent'),
+    background_color: themeColor('color-bg'),
+    icons: [
+      { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
+      { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
+      {
+        src: 'icons/icon-512-maskable.png',
+        sizes: '512x512',
+        type: 'image/png',
+        purpose: 'maskable',
+      },
+    ],
+  },
+  workbox: {
+    globPatterns: ['**/*.{html,js,css,wasm}'],
+    maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
+    cleanupOutdatedCaches: true,
+  },
+});
+
 export default defineConfig({
-  base: '/kobo-annotations/',
-  plugins: [preact(), cspMeta()],
+  base: BASE,
+  plugins: [preact(), cspMeta(), pwa],
   test: {
     environment: 'happy-dom',
     include: ['tests/**/*.test.{ts,tsx}'],

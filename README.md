@@ -3,7 +3,8 @@
 Export the highlights from your Kobo e-reader to a CSV file, filtered by highlight color.
 Everything runs in your browser: your reading data never leaves your computer.
 
-> Work in progress. The app is not usable yet.
+Open it at <https://beatrizjover.github.io/kobo-annotations/>. In Chrome, Edge or Safari
+(Add to Dock) you can install it as an app; after the first visit it also works offline.
 
 ## Development
 
@@ -14,6 +15,7 @@ npm ci
 npm run dev        # local dev server
 npm run build      # production build in dist/
 npm run fixture    # regenerate the synthetic test databases in tests/fixtures/
+npm run icons      # regenerate the app icons in public/icons/ from the theme colours
 ```
 
 Checks run in CI on every pull request:
