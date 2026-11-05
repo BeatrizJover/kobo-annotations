@@ -14,7 +14,9 @@ async function collectErrors(page: Page): Promise<string[]> {
   await page.addInitScript(() => {
     document.addEventListener('securitypolicyviolation', (event) => {
       const source = event.target instanceof Element ? event.target : null;
-      const where = source ? ` on <${source.localName} class="${source.className}">` : '';
+      const where = source
+        ? ` on <${source.localName} class="${source.getAttribute('class') ?? ''}">`
+        : '';
       console.error(
         `CSP violation: ${event.violatedDirective} ${event.blockedURI}${where} ${event.sample}`,
       );

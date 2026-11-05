@@ -17,7 +17,7 @@ test('keeps the highlights across visits until the saved data is cleared', async
 
   const ascending = await books.allTextContents();
   await page.getByRole('radio', { name: 'Title (Z–A)' }).check();
-  expect(await books.allTextContents()).toEqual([...ascending].reverse());
+  await expect(books).toHaveText([...ascending].reverse());
 
   await page.reload();
   await expect(page.getByText(/^Found .+ highlights in .+ books\.$/)).toBeVisible();
