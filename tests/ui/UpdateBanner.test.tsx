@@ -23,6 +23,9 @@ describe('UpdateBanner', () => {
     const announce = setup();
     const apply = vi.fn();
     await announce(apply);
+    expect(screen.getByRole('status').textContent).toBe(
+      'A new version of Kobo Annotations is available.',
+    );
     fireEvent.click(screen.getByRole('button', { name: 'Reload' }));
     expect(apply).toHaveBeenCalledOnce();
   });

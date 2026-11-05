@@ -8,20 +8,18 @@ export function UpdateBanner({ register }: { register: RegisterUpdates }) {
 
   useEffect(() => register((next) => setApply(() => next)), [register]);
 
-  // The live region stays mounted so screen readers announce content added to it.
+  // The live region stays mounted and holds only the message, so screen readers announce just that.
   return (
-    <div role="status">
+    <div class={apply ? 'update-banner' : undefined}>
+      <span role="status">{apply && 'A new version of Kobo Annotations is available.'}</span>
       {apply && (
-        <div class="update-banner">
-          <span>A new version of Kobo Annotations is available.</span>
-          <div class="update-actions">
-            <button type="button" class="button" onClick={apply}>
-              Reload
-            </button>
-            <button type="button" class="button-plain" onClick={() => setApply(null)}>
-              Later
-            </button>
-          </div>
+        <div class="update-actions">
+          <button type="button" class="button" onClick={apply}>
+            Reload
+          </button>
+          <button type="button" class="button-plain" onClick={() => setApply(null)}>
+            Later
+          </button>
         </div>
       )}
     </div>
