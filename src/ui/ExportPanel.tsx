@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'preact/hooks';
 import { csvFilename, filterHighlights, toCsv, type ExportFilter } from '../export/csv';
 import { COLORS, type Color, type KoboLibrary } from '../kobo/types';
+import { isNew, newImportId } from '../store/history';
 import { COLOR_LABELS, countByColor, usesColors } from './colors';
 import { downloadText } from './download';
 
@@ -11,6 +12,10 @@ export function ExportPanel({ library }: { library: KoboLibrary }) {
   const { highlights } = library;
   const showColors = useMemo(() => usesColors(library), [library]);
   const bookCount = useMemo(() => new Set(highlights.map((h) => h.bookId)).size, [highlights]);
+  const newCount = useMemo(() => {
+    const importId = newImportId(library);
+    return highlights.filter((h) => isNew(h, importId)).length;
+  }, [library, highlights]);
   const [colors, setColors] = useState<readonly Color[]>(COLORS);
   const [notesOnly, setNotesOnly] = useState(false);
 
@@ -31,6 +36,11 @@ export function ExportPanel({ library }: { library: KoboLibrary }) {
         Found {plural(highlights.length, 'highlight', 'highlights')} in{' '}
         {plural(bookCount, 'book', 'books')}.
       </p>
+      {newCount > 0 && (
+        <p class="hint">
+          {plural(newCount, 'highlight is', 'highlights are')} new since last time.
+        </p>
+      )}
 
       {showColors && (
         <fieldset class="filters">

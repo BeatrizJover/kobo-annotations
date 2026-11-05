@@ -407,7 +407,12 @@ describe('App saved library', () => {
 
   it('warns when the browser cannot save, and still loads files', async () => {
     const unavailable = () => Promise.reject(new StoreError('unavailable'));
-    const store: HighlightStore = { load: unavailable, save: unavailable, clear: unavailable };
+    const store: HighlightStore = {
+      load: unavailable,
+      save: unavailable,
+      clear: unavailable,
+      forgetBook: unavailable,
+    };
     start(resolving(library), store);
     expect((await screen.findByRole('alert')).textContent).toMatch(/not saving your highlights/);
     choose();
@@ -542,5 +547,137 @@ describe('App saved library', () => {
     expect((await screen.findByRole('alert')).textContent).toMatch(/is not a Kobo database/);
     screen.getByRole('region', { name: 'Export' });
     screen.getByRole('heading', { level: 2, name: 'Your books' });
+  });
+});
+
+describe('App history', () => {
+  const glass = () => library.highlights.find((h) => h.book === 'The Glass Orchard')?.bookId ?? '';
+  const faro = () => library.highlights.find((h) => h.book === 'El Faro Apagado')?.bookId ?? '';
+  const without = (...bookIds: string[]): KoboLibrary => ({
+    ...library,
+    highlights: library.highlights.filter((h) => !bookIds.includes(h.bookId)),
+  });
+  const rowsOf = (bookId: string) => library.highlights.filter((h) => h.bookId === bookId);
+  const tile = (name: RegExp) => screen.getByRole('button', { name });
+
+  async function storeWith(...uploads: KoboLibrary[]) {
+    const store = createIdbStore(new IDBFactory());
+    for (const upload of uploads) await store.save(upload);
+    return store;
+  }
+
+  it('marks what is new since the last upload and books no longer on the Kobo', async () => {
+    start(resolving(library), await storeWith(without(glass()), without(faro())));
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    const added = rowsOf(glass()).length;
+
+    expect(tile(/^The Glass Orchard/).textContent).toContain(`${added} new`);
+    expect(tile(/^El Faro Apagado/).textContent).toContain('Not on your Kobo');
+    screen.getByText(`${added} highlights are new since last time.`);
+
+    fireEvent.click(tile(/^The Glass Orchard/));
+    const view = screen.getByRole('region', { name: 'The Glass Orchard' });
+    expect(within(view).getAllByText('New')).toHaveLength(added);
+    expect(within(view).queryByRole('button', { name: 'Forget this book' })).toBeNull();
+  });
+
+  it('marks nothing on the first upload', async () => {
+    start(resolving(library), await storeWith(library));
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    expect(screen.queryByText(/new since last time/)).toBeNull();
+    expect(screen.queryByText(/ new$/)).toBeNull();
+    expect(screen.queryByText('Not on your Kobo')).toBeNull();
+  });
+
+  it('forgets a book that left the Kobo after confirmation', async () => {
+    const store = await storeWith(library, without(glass()));
+    start(resolving(library), store);
+    fireEvent.click(await screen.findByRole('button', { name: /^The Glass Orchard/ }));
+    screen.getByText(/no longer on your Kobo/);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Forget this book' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cancel' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget book' }));
+
+    const heading = await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    await waitFor(() => expect(document.activeElement).toBe(heading));
+    expect(screen.queryByRole('button', { name: /^The Glass Orchard/ })).toBeNull();
+    const left = (await store.load()).highlights;
+    expect(left.some((h) => h.bookId === glass())).toBe(false);
+    expect(left).toHaveLength(library.highlights.length - rowsOf(glass()).length);
+  });
+
+  it('keeps the book when the confirmation is cancelled', async () => {
+    start(resolving(library), await storeWith(library, without(glass())));
+    fireEvent.click(await screen.findByRole('button', { name: /^The Glass Orchard/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget this book' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Forget this book' }));
+    screen.getByRole('region', { name: 'The Glass Orchard' });
+  });
+
+  it('returns to the empty page when the last book is forgotten', async () => {
+    const only: KoboLibrary = { ...library, highlights: rowsOf(glass()) };
+    start(resolving(library), await storeWith(only, { ...library, highlights: [] }));
+    fireEvent.click(await screen.findByRole('button', { name: /^The Glass Orchard/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget this book' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget book' }));
+
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Export' })).toBeNull());
+    expect(screen.queryByRole('button', { name: 'Clear saved data' })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByLabelText('Choose file'));
+  });
+
+  it('keeps the book and says so when forgetting fails', async () => {
+    const store: HighlightStore = {
+      ...(await storeWith(library, without(glass()))),
+      forgetBook: () => Promise.reject(new StoreError('failed')),
+    };
+    start(resolving(library), store);
+    fireEvent.click(await screen.findByRole('button', { name: /^The Glass Orchard/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget this book' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget book' }));
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/could not be read or updated/);
+    screen.getByRole('region', { name: 'The Glass Orchard' });
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Forget this book' })).toBeTruthy(),
+    );
+  });
+
+  it('downloads one book with the filters of its view', async () => {
+    const created = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:csv');
+    vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined);
+    let filename = '';
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (
+      this: HTMLAnchorElement,
+    ) {
+      filename = this.download;
+    });
+    start(resolving(library), await storeWith(library));
+    fireEvent.click(await screen.findByRole('button', { name: /^The Glass Orchard/ }));
+    fireEvent.click(screen.getByRole('tab', { name: /^Notes/ }));
+    const notes = rowsOf(glass()).filter((h) => h.note !== '');
+    const button = screen.getByRole('button', { name: /^Download this book/ });
+    expect(button.textContent).toContain(`(${notes.length} `);
+    fireEvent.click(button);
+
+    const blob = created.mock.calls[0]?.[0] as Blob;
+    const expected = toCsv(rowsOf(glass()), { colors: COLORS, notesOnly: true });
+    expect(new Uint8Array(await blob.arrayBuffer())).toEqual(new TextEncoder().encode(expected));
+    expect(filename).toBe(csvFilename());
+  });
+
+  it('keeps focus off the book tiles after Back, a clear and a new file', async () => {
+    start(resolving(library), await storeWith(library));
+    fireEvent.click(await screen.findByRole('button', { name: /^The Glass Orchard/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'All books' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear saved data' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete saved data' }));
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Export' })).toBeNull());
+
+    choose();
+    await screen.findByText(/saved in this browser/);
+    expect(document.activeElement).not.toBe(tile(/^The Glass Orchard/));
   });
 });

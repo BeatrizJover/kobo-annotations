@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
-import { filterHighlights } from '../export/csv';
+import { csvFilename, filterHighlights, toCsv, type ExportFilter } from '../export/csv';
 import { HIGHLIGHT_ORDERS, sortByCreated, type HighlightOrder } from '../kobo/books';
 import { COLORS, type Color, type KoboLibrary } from '../kobo/types';
+import { isNew, isOffDevice, newImportId } from '../store/history';
 import { COLOR_LABELS, countByColor, usesColors } from './colors';
+import { downloadText } from './download';
+import { ForgetBook } from './ForgetBook';
 
 const TABS = ['highlights', 'notes', 'stats'] as const;
 
@@ -24,10 +27,13 @@ interface BookViewProps {
   /** Bookmark.VolumeID of the book to show. */
   bookId: string;
   onBack: () => void;
+  /** Present only when the shown highlights are the saved ones. */
+  onForget?: () => Promise<void>;
 }
 
-export function BookView({ library, bookId, onBack }: BookViewProps) {
+export function BookView({ library, bookId, onBack, onForget }: BookViewProps) {
   const showColors = useMemo(() => usesColors(library), [library]);
+  const importId = useMemo(() => newImportId(library), [library]);
   const own = useMemo(
     () => library.highlights.filter((h) => h.bookId === bookId),
     [library, bookId],
@@ -62,10 +68,12 @@ export function BookView({ library, bookId, onBack }: BookViewProps) {
 
   const tabRows = tab === 'notes' ? notes : own;
   const counts = countByColor(tabRows);
-  const rows = sortByCreated(
-    filterHighlights(tabRows, { colors: showColors ? colors : undefined, notesOnly: false }),
-    order,
-  );
+  const filter: ExportFilter = {
+    colors: showColors ? colors : undefined,
+    notesOnly: tab === 'notes',
+  };
+  const rows = sortByCreated(filterHighlights(own, filter), order);
+  const offDevice = own.every(isOffDevice);
   const tabCounts: Record<Tab, number | null> = {
     highlights: own.length,
     notes: notes.length,
@@ -108,6 +116,14 @@ export function BookView({ library, bookId, onBack }: BookViewProps) {
       <p class="book-author" dir="auto">
         {first.author || 'Unknown author'}
       </p>
+      {offDevice && (
+        <div class="book-gone">
+          <p class="notice">
+            This book is no longer on your Kobo. Its highlights stay saved in this browser.
+          </p>
+          {onForget && <ForgetBook onForget={onForget} />}
+        </div>
+      )}
 
       <div class="tabs" role="tablist" aria-label="Book sections" onKeyDown={onTabKey}>
         {TABS.map((t) => (
@@ -174,6 +190,18 @@ export function BookView({ library, bookId, onBack }: BookViewProps) {
                 </label>
               ))}
             </fieldset>
+            <div class="actions">
+              {/* The CSV keeps book order; the date order only applies on screen. */}
+              <button
+                type="button"
+                class="button"
+                disabled={rows.length === 0}
+                onClick={() => downloadText(toCsv(own, filter), csvFilename())}
+              >
+                Download this book ({rows.length.toLocaleString()}{' '}
+                {rows.length === 1 ? 'row' : 'rows'})
+              </button>
+            </div>
 
             {rows.length === 0 ? (
               <p class="notice">{empty}</p>
@@ -201,6 +229,14 @@ export function BookView({ library, bookId, onBack }: BookViewProps) {
                       )}
                     </span>
                     <div class="card-body">
+                      {(isNew(h, importId) || (!offDevice && isOffDevice(h))) && (
+                        <span class="tags">
+                          {isNew(h, importId) && <span class="tag tag-new">New</span>}
+                          {!offDevice && isOffDevice(h) && (
+                            <span class="tag">Not on your Kobo</span>
+                          )}
+                        </span>
+                      )}
                       <p class="card-text" dir="auto">
                         {h.text}
                       </p>

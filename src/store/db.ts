@@ -27,6 +27,8 @@ export interface HighlightStore {
   /** Merges an upload into the saved highlights and returns the result. */
   save(library: KoboLibrary): Promise<SavedLibrary>;
   clear(): Promise<void>;
+  /** Deletes one book's highlights and returns what is left; the last book takes the uploads too. */
+  forgetBook(bookId: string): Promise<SavedLibrary>;
 }
 
 const request = <T>(req: IDBRequest<T>) =>
@@ -180,6 +182,23 @@ export function createIdbStore(factory?: IDBFactory): HighlightStore {
           request(tx.objectStore(HIGHLIGHTS).clear()),
           request(tx.objectStore(IMPORTS).clear()),
         ]);
+      }),
+
+    forgetBook: (bookId) =>
+      run('readwrite', async (tx) => {
+        const store = tx.objectStore(HIGHLIGHTS);
+        const keys = await request(store.index('bookId').getAllKeys(bookId));
+        await Promise.all(keys.map((key) => request(store.delete(key))));
+        const { highlights, imports } = await readAll(tx);
+        if (highlights.length === 0) {
+          await request(tx.objectStore(IMPORTS).clear());
+          return { highlights, hasColor: false, imports: [] };
+        }
+        return {
+          highlights: sortHighlights(highlights),
+          hasColor: imports.some((i) => i.hasColor),
+          imports,
+        };
       }),
   };
 }

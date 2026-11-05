@@ -141,6 +141,26 @@ export function App({ load, store }: AppProps) {
     }
   };
 
+  const forget = async (bookId: string) => {
+    try {
+      const library = await store.forgetBook(bookId);
+      setStoreError(null);
+      setOpenBook(null);
+      if (library.highlights.length === 0) {
+        setShown(null);
+        setHasSaved(false);
+        setReturning(false);
+        fileInput.current?.focus();
+        return;
+      }
+      // Keeps the key so the export filters survive.
+      setShown((current) => ({ library, saved: true, key: current?.key ?? ++keys.current }));
+      setReturning(true);
+    } catch (error) {
+      setStoreError(storeErrorCode(error));
+    }
+  };
+
   const busy = task.status === 'loading';
 
   return (
@@ -173,7 +193,7 @@ export function App({ load, store }: AppProps) {
         <>
           <ExportPanel key={shown.key} library={shown.library} />
           <Library
-            highlights={shown.library.highlights}
+            library={shown.library}
             hidden={openBook !== null}
             restoreFocus={returning}
             onOpen={setOpenBook}
@@ -186,6 +206,7 @@ export function App({ load, store }: AppProps) {
                 setOpenBook(null);
                 setReturning(true);
               }}
+              onForget={shown.saved ? () => forget(openBook) : undefined}
             />
           )}
         </>
