@@ -7,3 +7,5 @@ local_data/
 # Build
 node_modules/
 dist/
+test-results/
+playwright-report/
