@@ -131,6 +131,7 @@ export function App({ load, store }: AppProps) {
       await store.clear();
       setShown(null);
       setOpenBook(null);
+      setReturning(false);
       setHasSaved(false);
       setStoreError(null);
       // The clear controls are gone, so focus moves to the next useful action.
