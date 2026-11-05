@@ -124,24 +124,27 @@ function readHighlights(db: Database, hasColor: boolean, resolve: ChapterResolve
 
 const byString = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 
-function compareHighlights(collator: Intl.Collator) {
-  return (a: Highlight, b: Highlight): number =>
-    collator.compare(a.book, b.book) ||
-    collator.compare(a.author, b.author) ||
-    byString(a.bookId, b.bookId) ||
-    a.chapterIndex - b.chapterIndex ||
-    a.progress - b.progress ||
-    byString(a.created, b.created) ||
-    byString(a.id, b.id);
+const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
+
+const compareHighlights = (a: Highlight, b: Highlight): number =>
+  collator.compare(a.book, b.book) ||
+  collator.compare(a.author, b.author) ||
+  byString(a.bookId, b.bookId) ||
+  a.chapterIndex - b.chapterIndex ||
+  a.progress - b.progress ||
+  byString(a.created, b.created) ||
+  byString(a.id, b.id);
+
+/** Sorts in place in export order: book, chapter file, position, creation date. */
+export function sortHighlights<T extends Highlight>(highlights: T[]): T[] {
+  return highlights.sort(compareHighlights);
 }
 
 function readLibrary(db: Database): KoboLibrary {
   requireColumns(db, 'content', CONTENT_COLUMNS);
   const hasColor = requireColumns(db, 'bookmark', BOOKMARK_COLUMNS).has('color');
 
-  const highlights = dedupeBooks(readHighlights(db, hasColor, loadToc(db)));
-  const collator = new Intl.Collator(undefined, { sensitivity: 'base', numeric: true });
-  highlights.sort(compareHighlights(collator));
+  const highlights = sortHighlights(dedupeBooks(readHighlights(db, hasColor, loadToc(db))));
   return { highlights, hasColor };
 }
 
