@@ -14,7 +14,8 @@ export function FileHelp() {
         </li>
         <li>
           If there is no <strong>.kobo</strong> folder, in File Explorer go to{' '}
-          <strong>View › Show › Hidden items</strong>.
+          <strong>View › Show › Hidden items</strong> (Windows 11) or tick{' '}
+          <strong>View › Hidden items</strong> (Windows 10).
         </li>
       </ol>
       <h3>Linux</h3>

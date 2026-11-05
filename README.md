@@ -28,8 +28,8 @@ Click **Choose file**, or drag the file onto the page.
 
 1. In the file window, open **This PC › KOBOeReader › .kobo**.
 2. Choose **KoboReader.sqlite**.
-3. If there is no **.kobo** folder, open File Explorer and go to **View › Show › Hidden items**,
-   then try again.
+3. If there is no **.kobo** folder, open File Explorer and go to **View › Show › Hidden items**
+   (Windows 11) or tick **View › Hidden items** (Windows 10), then try again.
 
 **Linux**
 
@@ -46,11 +46,12 @@ The app reads the file on your computer. It never uploads it and never changes i
 The app shows how many highlights and books it found.
 
 - **Colors**: untick the colors you don't want. The number next to each color is its count.
-  On Kobo models without colored highlights this section is hidden.
+  If your Kobo has no colored highlights, or all your highlights are yellow, this section is
+  hidden.
 - **Notes only**: tick it to export only the highlights where you wrote a note.
 
-Click **Download CSV**. The file is saved as `kobo-highlights-YYYY-MM-DD.csv` in your
-Downloads folder.
+Click **Download CSV**. The file is saved as `kobo-highlights-YYYY-MM-DD.csv`, usually in
+your Downloads folder.
 
 ### 5. Open the CSV
 
@@ -75,6 +76,8 @@ books stay in that copy, and you can load it in the app later.
   and retry.
 - **"No highlights or notes were found in this file"**: the Kobo has no highlights yet, or you
   loaded an old copy of the file.
+- **"Something went wrong while reading the file"**: reload the page and try again.
+- **"No highlights match the selected filters"**: tick more colors, or untick **Notes only**.
 - **Excel shows everything in one column**: the file uses `;` between columns, and your Excel
   expects `,`. In Excel, go to **Data › From Text/CSV**, choose the file and pick
   **Semicolon** as the delimiter.
