@@ -31,7 +31,7 @@ test('opens a book, switches tabs, filters by colour and goes back', async ({ pa
   await page.keyboard.press('End');
   await expect(view.getByText('Stats are coming in a later version.')).toBeVisible();
 
-  await view.getByRole('button', { name: '← All books' }).click();
+  await view.getByRole('button', { name: 'All books' }).click();
   await expect(view).toHaveCount(0);
   await expect(tile).toBeFocused();
   expect(errors).toEqual([]);

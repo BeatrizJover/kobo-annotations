@@ -353,7 +353,7 @@ describe('App saved library', () => {
     expect(document.activeElement).toBe(within(view).getByRole('heading', { level: 2 }));
     screen.getByRole('region', { name: 'Export' });
 
-    fireEvent.click(screen.getByRole('button', { name: '← All books' }));
+    fireEvent.click(screen.getByRole('button', { name: 'All books' }));
     expect(screen.queryByRole('region', { name: 'The Glass Orchard' })).toBeNull();
     screen.getByRole('region', { name: 'Your books' });
     expect(document.activeElement).toBe(tile);
@@ -363,9 +363,15 @@ describe('App saved library', () => {
   it('closes the open book when a new file is loaded or the data is cleared', async () => {
     start(resolving(library), await savedStore());
     fireEvent.click(await screen.findByRole('button', { name: /^The Glass Orchard/ }));
+    const input = screen.getByLabelText('Choose file');
+    input.focus();
     choose();
     await screen.findByRole('region', { name: 'Your books' });
     expect(screen.queryByRole('region', { name: 'The Glass Orchard' })).toBeNull();
+    await screen.findByText(/saved in this browser/);
+    expect(document.activeElement).not.toBe(
+      screen.getByRole('button', { name: /^The Glass Orchard/ }),
+    );
 
     fireEvent.click(screen.getByRole('button', { name: /^The Glass Orchard/ }));
     const clearButton = screen.getByRole('button', { name: 'Clear saved data' });

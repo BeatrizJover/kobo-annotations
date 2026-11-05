@@ -132,7 +132,7 @@ describe('BookView', () => {
     const known = bookOf(library, 'The Glass Orchard');
     show(library, known);
     const first = [...rowsOf(library, known)].sort((a, b) =>
-      a.created < b.created ? -1 : 1,
+      a.created < b.created ? -1 : a.created > b.created ? 1 : 0,
     )[0] as Highlight;
     expect(cards()[0]?.querySelector('.card-chapter')?.textContent).toBe(
       `Chapter ${first.chapterNo}`,
@@ -155,14 +155,23 @@ describe('BookView', () => {
   it('hides the colour filter and swatches on devices without colours', () => {
     const first = noColor.highlights[0] as Highlight;
     show(noColor, first.bookId);
-    expect(screen.queryByRole('group', { name: 'Colors' })).toBeNull();
+    expect(screen.queryByRole('group', { name: 'Show colors' })).toBeNull();
     expect(screen.queryAllByRole('img')).toEqual([]);
     expect(cards()).toHaveLength(rowsOf(noColor, first.bookId).length);
   });
 
   it('goes back to the library', () => {
     const onBack = show(library, bookOf(library, 'The Glass Orchard'));
-    fireEvent.click(screen.getByRole('button', { name: '← All books' }));
+    fireEvent.click(screen.getByRole('button', { name: 'All books' }));
+    expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it('offers a way back when the book has no highlights left', () => {
+    const onBack = show(library, 'missing-volume');
+    screen.getByText('This book is no longer in your highlights.');
+    const backButton = screen.getByRole('button', { name: 'All books' });
+    expect(document.activeElement).toBe(backButton);
+    fireEvent.click(backButton);
     expect(onBack).toHaveBeenCalledOnce();
   });
 });

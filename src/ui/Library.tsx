@@ -13,18 +13,20 @@ interface LibraryProps {
   highlights: readonly Highlight[];
   /** Kept mounted while a book is open, so the sort and the tile to refocus survive. */
   hidden: boolean;
+  /** Whether to refocus the last opened tile when shown again, i.e. after Back. */
+  restoreFocus: boolean;
   onOpen: (bookId: string) => void;
 }
 
-export function Library({ highlights, hidden, onOpen }: LibraryProps) {
+export function Library({ highlights, hidden, restoreFocus, onOpen }: LibraryProps) {
   const [sort, setSort] = useState<BookSort>('title-asc');
   const books = useMemo(() => listBooks(highlights), [highlights]);
   const sorted = useMemo(() => sortBooks(books, sort), [books, sort]);
   const opened = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
-    if (!hidden) opened.current?.focus();
-  }, [hidden]);
+    if (!hidden && restoreFocus) opened.current?.focus();
+  }, [hidden, restoreFocus]);
 
   if (books.length === 0) return null;
 

@@ -37,14 +37,28 @@ export function BookView({ library, bookId, onBack }: BookViewProps) {
   const [colors, setColors] = useState<readonly Color[]>(COLORS);
   const [order, setOrder] = useState<HighlightOrder>('oldest');
   const heading = useRef<HTMLHeadingElement>(null);
+  const backButton = useRef<HTMLButtonElement>(null);
   const tabButtons = useRef<Partial<Record<Tab, HTMLButtonElement | null>>>({});
 
   useEffect(() => {
-    heading.current?.focus();
+    (heading.current ?? backButton.current)?.focus();
   }, []);
 
+  const back = (
+    <button ref={backButton} type="button" class="button-plain back" onClick={onBack}>
+      <span aria-hidden="true">←</span> All books
+    </button>
+  );
+
   const first = own[0];
-  if (!first) return null;
+  if (!first) {
+    return (
+      <section class="book-view" aria-label="Book">
+        {back}
+        <p class="notice">This book is no longer in your highlights.</p>
+      </section>
+    );
+  }
 
   const tabRows = tab === 'notes' ? notes : own;
   const counts = countByColor(tabRows);
@@ -87,9 +101,7 @@ export function BookView({ library, bookId, onBack }: BookViewProps) {
 
   return (
     <section class="book-view" aria-labelledby="book-title">
-      <button type="button" class="button-plain back" onClick={onBack}>
-        ← All books
-      </button>
+      {back}
       <h2 id="book-title" ref={heading} tabIndex={-1} dir="auto">
         {first.book || 'Untitled'}
       </h2>
@@ -126,7 +138,7 @@ export function BookView({ library, bookId, onBack }: BookViewProps) {
           <>
             {showColors && (
               <fieldset class="filters">
-                <legend>Colors</legend>
+                <legend>Show colors</legend>
                 <label class="check">
                   <input
                     type="checkbox"
