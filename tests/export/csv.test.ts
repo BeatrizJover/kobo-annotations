@@ -5,10 +5,10 @@ import initSqlJs from 'sql.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { csvFilename, filterHighlights, formatLocal, toCsv } from '../../src/export/csv';
 import { parseKobo } from '../../src/kobo/parse';
-import type { Color, Highlight } from '../../src/kobo/types';
+import { COLORS, type Highlight } from '../../src/kobo/types';
 
 const HEADER = '"Book";"Author";"Chapter";"Highlight";"Note";"Color";"Created"\r\n';
-const ALL: Color[] = ['yellow', 'pink', 'blue', 'green'];
+const ALL = [...COLORS];
 const NO_FILTER = { notesOnly: false };
 
 let id = 0;
