@@ -29,10 +29,14 @@ export function ForgetBook({ onForget }: { onForget: () => Promise<void> }) {
   // A successful forget unmounts this component, so only a failure resets it.
   const forget = async () => {
     setBusy(true);
-    await onForget();
-    if (!mounted.current) return;
-    setBusy(false);
-    toggle(false);
+    try {
+      await onForget();
+    } finally {
+      if (mounted.current) {
+        setBusy(false);
+        toggle(false);
+      }
+    }
   };
 
   return confirming ? (

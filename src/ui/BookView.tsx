@@ -208,47 +208,49 @@ export function BookView({ library, bookId, onBack, onForget }: BookViewProps) {
             ) : (
               // Safari drops list semantics when list-style is none.
               <ul class="card-list" role="list">
-                {rows.map((h) => (
-                  <li key={h.id} class="card">
-                    <span class="card-side">
-                      <span class="card-chapter">
-                        <span class="visually-hidden">Chapter </span>
-                        {h.chapterNo ?? (
-                          <>
-                            <span aria-hidden="true">–</span>
-                            <span class="visually-hidden">unknown</span>
-                          </>
-                        )}
-                      </span>
-                      {showColors && h.color && (
-                        <span
-                          class={`swatch swatch-${h.color}`}
-                          role="img"
-                          aria-label={COLOR_LABELS[h.color]}
-                        />
-                      )}
-                    </span>
-                    <div class="card-body">
-                      {(isNew(h, importId) || (!offDevice && isOffDevice(h))) && (
-                        <span class="tags">
-                          {isNew(h, importId) && <span class="tag tag-new">New</span>}
-                          {!offDevice && isOffDevice(h) && (
-                            <span class="tag">Not on your Kobo</span>
+                {rows.map((h) => {
+                  const fresh = isNew(h, importId);
+                  const gone = !offDevice && isOffDevice(h);
+                  return (
+                    <li key={h.id} class="card">
+                      <span class="card-side">
+                        <span class="card-chapter">
+                          <span class="visually-hidden">Chapter </span>
+                          {h.chapterNo ?? (
+                            <>
+                              <span aria-hidden="true">–</span>
+                              <span class="visually-hidden">unknown</span>
+                            </>
                           )}
                         </span>
-                      )}
-                      <p class="card-text" dir="auto">
-                        {h.text}
-                      </p>
-                      {h.note && (
-                        <p class="card-note">
-                          <span class="card-label">Note</span>
-                          <span dir="auto">{h.note}</span>
+                        {showColors && h.color && (
+                          <span
+                            class={`swatch swatch-${h.color}`}
+                            role="img"
+                            aria-label={COLOR_LABELS[h.color]}
+                          />
+                        )}
+                      </span>
+                      <div class="card-body">
+                        {(fresh || gone) && (
+                          <span class="tags">
+                            {fresh && <span class="tag tag-new">New</span>}
+                            {gone && <span class="tag">Not on your Kobo</span>}
+                          </span>
+                        )}
+                        <p class="card-text" dir="auto">
+                          {h.text}
                         </p>
-                      )}
-                    </div>
-                  </li>
-                ))}
+                        {h.note && (
+                          <p class="card-note">
+                            <span class="card-label">Note</span>
+                            <span dir="auto">{h.note}</span>
+                          </p>
+                        )}
+                      </div>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </>

@@ -641,8 +641,38 @@ describe('App history', () => {
     expect((await screen.findByRole('alert')).textContent).toMatch(/could not be read or updated/);
     screen.getByRole('region', { name: 'The Glass Orchard' });
     await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Forget this book' })).toBeTruthy(),
+      expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Forget this book' })),
     );
+  });
+
+  it('leaves another open book alone when a slow forget finishes', async () => {
+    const saved = await storeWith(library, without(glass(), faro()));
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    let finished: Promise<unknown> = Promise.resolve();
+    const store: HighlightStore = {
+      ...saved,
+      forgetBook: (id) => {
+        const result = gate.then(() => saved.forgetBook(id));
+        finished = result;
+        return result;
+      },
+    };
+    start(resolving(library), store);
+    fireEvent.click(await screen.findByRole('button', { name: /^The Glass Orchard/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget this book' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget book' }));
+    fireEvent.click(screen.getByRole('button', { name: 'All books' }));
+    fireEvent.click(tile(/^El Faro Apagado/));
+
+    await act(async () => {
+      release();
+      await finished;
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    screen.getByRole('region', { name: 'El Faro Apagado' });
+    fireEvent.click(screen.getByRole('button', { name: 'All books' }));
+    expect(screen.queryByRole('button', { name: /^The Glass Orchard/ })).toBeNull();
   });
 
   it('downloads one book with the filters of its view', async () => {
@@ -656,16 +686,25 @@ describe('App history', () => {
     });
     start(resolving(library), await storeWith(library));
     fireEvent.click(await screen.findByRole('button', { name: /^The Glass Orchard/ }));
-    fireEvent.click(screen.getByRole('tab', { name: /^Notes/ }));
-    const notes = rowsOf(glass()).filter((h) => h.note !== '');
-    const button = screen.getByRole('button', { name: /^Download this book/ });
-    expect(button.textContent).toContain(`(${notes.length} `);
-    fireEvent.click(button);
+    const view = screen.getByRole('region', { name: 'The Glass Orchard' });
+    const rows = rowsOf(glass());
+    const button = () => within(view).getByRole('button', { name: /^Download this book/ });
+    const downloaded = async (call: number) =>
+      new Uint8Array(await (created.mock.calls[call]?.[0] as Blob).arrayBuffer());
+    const encoded = (text: string) => new TextEncoder().encode(text);
 
-    const blob = created.mock.calls[0]?.[0] as Blob;
-    const expected = toCsv(rowsOf(glass()), { colors: COLORS, notesOnly: true });
-    expect(new Uint8Array(await blob.arrayBuffer())).toEqual(new TextEncoder().encode(expected));
+    fireEvent.click(within(view).getByRole('checkbox', { name: /^Blue/ }));
+    const noBlue = { colors: ['yellow', 'pink', 'green'] as const, notesOnly: false };
+    expect(toCsv(rows, noBlue)).not.toBe(toCsv(rows, { colors: COLORS, notesOnly: false }));
+    fireEvent.click(button());
+    expect(await downloaded(0)).toEqual(encoded(toCsv(rows, noBlue)));
     expect(filename).toBe(csvFilename());
+
+    fireEvent.click(within(view).getByRole('tab', { name: /^Notes/ }));
+    const notes = filterHighlights(rows, { ...noBlue, notesOnly: true });
+    expect(button().textContent).toContain(`(${notes.length} `);
+    fireEvent.click(button());
+    expect(await downloaded(1)).toEqual(encoded(toCsv(rows, { ...noBlue, notesOnly: true })));
   });
 
   it('keeps focus off the book tiles after Back, a clear and a new file', async () => {

@@ -312,7 +312,7 @@
 
 .tag-new {
   border-color: var(--color-accent);
-  background: var(--color-drop-over);
+  background: var(--color-tag-new-bg);
   color: var(--color-accent);
   font-weight: var(--font-weight-strong);
 }

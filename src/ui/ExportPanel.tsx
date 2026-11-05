@@ -15,7 +15,7 @@ export function ExportPanel({ library }: { library: KoboLibrary }) {
   const newCount = useMemo(() => {
     const importId = newImportId(library);
     return highlights.filter((h) => isNew(h, importId)).length;
-  }, [library, highlights]);
+  }, [library]);
   const [colors, setColors] = useState<readonly Color[]>(COLORS);
   const [notesOnly, setNotesOnly] = useState(false);
 

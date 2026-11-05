@@ -145,7 +145,8 @@ export function App({ load, store }: AppProps) {
     try {
       const library = await store.forgetBook(bookId);
       setStoreError(null);
-      setOpenBook(null);
+      // The user may have gone back and opened another book while this one was being deleted.
+      setOpenBook((open) => (open === bookId ? null : open));
       if (library.highlights.length === 0) {
         setShown(null);
         setHasSaved(false);
