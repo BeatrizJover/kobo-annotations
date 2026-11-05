@@ -133,6 +133,70 @@
   margin-top: var(--space-3);
 }
 
+.library {
+  margin-top: var(--space-4);
+}
+
+.library-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-3);
+}
+
+.library-header h2 {
+  margin: 0;
+  font-size: var(--font-size-h2);
+}
+
+.sort {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.sort select {
+  font: inherit;
+}
+
+.book-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--book-tile-min), 1fr));
+  gap: var(--space-3);
+  margin: var(--space-3) 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.book-tile {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-2);
+  background: var(--color-surface);
+}
+
+.book-title {
+  font-weight: var(--font-weight-strong);
+}
+
+.book-author,
+.book-count {
+  color: var(--color-text-muted);
+}
+
+.book-count {
+  margin-top: auto;
+  font-size: var(--font-size-small);
+}
+
+.saved-data {
+  margin-top: var(--space-4);
+}
+
 .help {
   margin-top: var(--space-4);
 }
