@@ -50,8 +50,28 @@ const EDGE_CASES: [string, string][] = [
   ],
   ['RTL text', `SELECT 1 FROM Bookmark WHERE Text GLOB '*[ء-ي]*'`],
   [
-    'two books with the same title',
-    "SELECT 1 FROM content WHERE ContentType = '6' GROUP BY Title HAVING COUNT(*) > 1",
+    'two annotated books with the same title and different authors',
+    `SELECT 1 FROM content c WHERE ContentType = '6'
+       AND EXISTS (SELECT 1 FROM Bookmark WHERE VolumeID = c.ContentID AND ${EXPORTED})
+     GROUP BY Title HAVING COUNT(DISTINCT Attribution) > 1`,
+  ],
+  [
+    'a duplicate book: same title and author, two volumes, identical highlights',
+    `SELECT 1 FROM content a JOIN content b
+       ON a.Title = b.Title AND a.Attribution = b.Attribution AND a.ContentID < b.ContentID
+     WHERE a.ContentType = '6' AND b.ContentType = '6'
+       AND EXISTS (SELECT 1 FROM Bookmark WHERE VolumeID = a.ContentID AND ${EXPORTED})
+       AND NOT EXISTS (
+         SELECT Text, Color FROM Bookmark WHERE VolumeID = a.ContentID AND ${EXPORTED}
+         EXCEPT SELECT Text, Color FROM Bookmark WHERE VolumeID = b.ContentID AND ${EXPORTED})
+       AND NOT EXISTS (
+         SELECT Text, Color FROM Bookmark WHERE VolumeID = b.ContentID AND ${EXPORTED}
+         EXCEPT SELECT Text, Color FROM Bookmark WHERE VolumeID = a.ContentID AND ${EXPORTED})`,
+  ],
+  [
+    'highlights on both sides of UTC midnight',
+    `SELECT 1 FROM (SELECT COUNT(DISTINCT substr(DateCreated, 12, 2)) AS n FROM Bookmark
+       WHERE ${EXPORTED} AND substr(DateCreated, 12, 2) IN ('23', '00')) WHERE n = 2`,
   ],
   [
     'a store book with a UUID volume',
@@ -97,5 +117,7 @@ describe('synthetic fixture', () => {
     const [result] = noColor.exec("SELECT name FROM pragma_table_info('Bookmark')");
     expect(result?.values.flat()).toContain('Text');
     expect(result?.values.flat()).not.toContain('Color');
+    const [rows] = noColor.exec(`SELECT COUNT(*) FROM Bookmark WHERE ${EXPORTED}`);
+    expect(rows?.values[0]?.[0]).toBeGreaterThan(0);
   });
 });

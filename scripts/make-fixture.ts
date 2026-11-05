@@ -74,6 +74,17 @@ const BOOKS: Book[] = [
     language: 'ar',
     chapters: [{ file: 'Text/fasl1.xhtml', title: 'الفصل الأول' }],
   },
+  // A sideloaded copy of the store book above, given the same highlights below.
+  {
+    id: `${SIDELOAD}Eva Rumbo - El Faro Apagado.kepub.epub`,
+    title: 'El Faro Apagado',
+    author: 'Eva Rumbo',
+    language: 'es',
+    chapters: [
+      { file: 'Text/cap01.xhtml', title: null },
+      { file: 'Text/cap02.xhtml', title: 'Medianoche' },
+    ],
+  },
 ];
 
 // Inserted out of reading order so the parser's sorting is actually exercised.
@@ -206,7 +217,7 @@ const MARKS: Mark[] = [
     color: 0,
     progress: 0.3,
     created: '2025-05-20T07:45:00.000',
-    text: ' Leading space, soft­hyphen and a non breaking space. ',
+    text: ' Leading space, soft\u00ADhyphen and a non\u00A0breaking space. ',
   },
   {
     book: 2,
@@ -245,6 +256,11 @@ const MARKS: Mark[] = [
     created: '2025-06-01T15:00:00.000',
     text: 'هذا نص تجريبي مكتوب من اليمين إلى اليسار.',
   },
+];
+
+const ALL_MARKS: Mark[] = [
+  ...MARKS,
+  ...MARKS.filter((mark) => mark.book === 3).map((mark) => ({ ...mark, book: 5 })),
 ];
 
 const USER_ID = 'synthetic-user';
@@ -391,7 +407,7 @@ export function buildFixture(SQL: SqlJsStatic, { withColor }: { withColor: boole
   const insertMark = db.prepare(
     `INSERT INTO Bookmark (${markColumns.join(', ')}) VALUES (${markColumns.map(() => '?').join(', ')})`,
   );
-  MARKS.forEach((mark, index) => {
+  ALL_MARKS.forEach((mark, index) => {
     const book = BOOKS[mark.book];
     const chapter = book?.chapters[mark.chapter];
     if (!book || !chapter) throw new Error(`Mark ${index} points to a missing book or chapter`);
