@@ -19,7 +19,7 @@ interface Mark {
   anchor?: string;
   type: Type;
   text: string | null;
-  annotation?: string;
+  annotation?: string | null;
   color?: number;
   progress: number;
   created: string;
@@ -231,6 +231,16 @@ const MARKS: Mark[] = [
     text: ' \n\t',
   },
   {
+    book: 2,
+    chapter: 0,
+    type: 'highlight',
+    color: 3,
+    progress: 0.8,
+    created: '2025-05-20T08:05:00.000',
+    text: 'Some firmware leaves the annotation NULL.',
+    annotation: null,
+  },
+  {
     book: 3,
     chapter: 0,
     type: 'highlight',
@@ -433,7 +443,7 @@ export function buildFixture(SQL: SqlJsStatic, { withColor }: { withColor: boole
       -99,
       mark.text?.length ?? 0,
       mark.text,
-      hasText ? (mark.annotation ?? '') : null,
+      hasText && mark.annotation !== null ? (mark.annotation ?? '') : null,
       mark.extra ?? null,
       mark.created,
       mark.progress,

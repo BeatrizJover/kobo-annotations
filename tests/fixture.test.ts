@@ -18,6 +18,10 @@ const EDGE_CASES: [string, string][] = [
     'all four colours',
     `SELECT 1 FROM (SELECT COUNT(DISTINCT Color) AS n FROM Bookmark WHERE ${EXPORTED}) WHERE n = 4`,
   ],
+  [
+    'a highlight with a NULL annotation',
+    "SELECT 1 FROM Bookmark WHERE Type = 'highlight' AND Text IS NOT NULL AND Annotation IS NULL",
+  ],
   ['a note with an annotation', "SELECT 1 FROM Bookmark WHERE Type = 'note' AND Annotation <> ''"],
   ['a dogear without text', "SELECT 1 FROM Bookmark WHERE Type = 'dogear' AND Text IS NULL"],
   [
