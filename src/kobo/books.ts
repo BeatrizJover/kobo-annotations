@@ -9,9 +9,12 @@ export interface BookSummary {
   count: number;
 }
 
-export const BOOK_SORTS = ['title-asc', 'title-desc', 'author-asc', 'author-desc'] as const;
+export const SORT_FIELDS = ['title', 'author'] as const;
+export const SORT_DIRECTIONS = ['asc', 'desc'] as const;
 
-export type BookSort = (typeof BOOK_SORTS)[number];
+export type SortField = (typeof SORT_FIELDS)[number];
+export type SortDirection = (typeof SORT_DIRECTIONS)[number];
+export type BookSort = `${SortField}-${SortDirection}`;
 
 /** One entry per book, in first-seen order. */
 export function listBooks(highlights: readonly Highlight[]): BookSummary[] {

@@ -6,7 +6,7 @@ import initSqlJs from 'sql.js';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { csvFilename, filterHighlights, toCsv } from '../../src/export/csv';
 import { parseKobo } from '../../src/kobo/parse';
-import { COLORS, type Color, type KoboLibrary } from '../../src/kobo/types';
+import { COLORS, type KoboLibrary } from '../../src/kobo/types';
 import { createIdbStore, StoreError, type HighlightStore } from '../../src/store/db';
 import { App } from '../../src/ui/App';
 import { LoadError, type LoadLibrary, type Phase } from '../../src/worker/protocol';
@@ -57,15 +57,16 @@ async function loaded(result: KoboLibrary) {
   await screen.findByRole('region', { name: 'Export' });
 }
 
-const LABELS: Record<Color, string> = {
-  yellow: 'Yellow',
-  pink: 'Pink',
-  blue: 'Blue',
-  green: 'Green',
-};
+const downloadButton = () => screen.getByRole('button', { name: 'Download CSV' });
+const sortGroup = () => screen.getByRole('group', { name: 'Sort by' });
+const sortField = (name: 'Title' | 'Author') =>
+  within(sortGroup()).getByRole('button', { name: new RegExp(`^${name}`) });
 
-const downloadButton = () => screen.getByRole('button', { name: /^Download CSV/ });
-const colorBox = (label: string) => screen.getByRole('checkbox', { name: new RegExp(`^${label}`) });
+/** Opens a sort field and picks a direction. */
+function sortBy(name: 'Title' | 'Author', direction: 'A–Z' | 'Z–A') {
+  fireEvent.click(sortField(name));
+  fireEvent.click(within(sortGroup()).getByRole('button', { name: direction }));
+}
 
 describe('App', () => {
   it('renders the title, the privacy promise and the file help', async () => {
@@ -74,6 +75,13 @@ describe('App', () => {
     screen.getByText(/never leaves this computer/);
     screen.getByText('Where is my file?');
     screen.getByText('KoboReader_20261105.sqlite');
+  });
+
+  it('puts the file help right below the drop zone, next to a hidden illustration', () => {
+    const { container } = start(resolving(library));
+    const zone = screen.getByTestId('drop-zone');
+    expect(zone.nextElementSibling).toBe(screen.getByText('Where is my file?').closest('details'));
+    expect(container.querySelector('svg.illustration')?.getAttribute('aria-hidden')).toBe('true');
   });
 
   it('stops the browser from opening files dropped outside the zone, until unmounted', async () => {
@@ -153,49 +161,16 @@ describe('App', () => {
     expect(load).toHaveBeenCalledOnce();
   });
 
-  it('summarises the library and counts each colour', async () => {
+  it('summarises the library without filters', async () => {
     await loaded(library);
     const books = new Set(library.highlights.map((h) => h.bookId)).size;
     screen.getByText(`Found ${library.highlights.length} highlights in ${books} books.`);
-    for (const color of COLORS) {
-      const count = library.highlights.filter((h) => h.color === color).length;
-      expect(count).toBeGreaterThan(0);
-      expect(colorBox(LABELS[color]).parentElement?.textContent).toContain(`(${count})`);
-      expect(colorBox(LABELS[color])).toHaveProperty('checked', true);
-    }
-    expect(downloadButton().textContent).toContain(`(${library.highlights.length} rows)`);
+    expect(downloadButton().textContent).toBe('Download CSV');
+    const panel = screen.getByRole('region', { name: 'Export' });
+    expect(within(panel).queryByRole('checkbox')).toBeNull();
   });
 
-  it('updates the row count when a colour is unticked', async () => {
-    await loaded(library);
-    fireEvent.click(colorBox('Pink'));
-    const expected = filterHighlights(library.highlights, {
-      colors: ['yellow', 'blue', 'green'],
-      notesOnly: false,
-    }).length;
-    expect(downloadButton().textContent).toContain(`(${expected} rows)`);
-  });
-
-  it('counts only notes when "Notes only" is ticked', async () => {
-    await loaded(library);
-    fireEvent.click(screen.getByRole('checkbox', { name: 'Notes only' }));
-    const notes = library.highlights.filter((h) => h.note !== '');
-    expect(notes.length).toBeGreaterThan(0);
-    expect(downloadButton().textContent).toContain(`(${notes.length} `);
-    for (const color of COLORS) {
-      const count = notes.filter((h) => h.color === color).length;
-      expect(colorBox(LABELS[color]).parentElement?.textContent).toContain(`(${count})`);
-    }
-  });
-
-  it('disables the download when no row matches', async () => {
-    await loaded(library);
-    for (const color of COLORS) fireEvent.click(colorBox(LABELS[color]));
-    expect(downloadButton()).toHaveProperty('disabled', true);
-    screen.getByText('No highlights match the selected filters.');
-  });
-
-  it('downloads the filtered CSV with the dated filename', async () => {
+  it('downloads every highlight with the dated filename', async () => {
     const created = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:csv');
     vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined);
     let filename = '';
@@ -206,14 +181,10 @@ describe('App', () => {
     });
 
     await loaded(library);
-    fireEvent.click(colorBox('Blue'));
     fireEvent.click(downloadButton());
 
     const blob = created.mock.calls[0]?.[0] as Blob;
-    const expected = toCsv(library.highlights, {
-      colors: ['yellow', 'pink', 'green'],
-      notesOnly: false,
-    });
+    const expected = toCsv(library.highlights, { notesOnly: false });
     expect(new Uint8Array(await blob.arrayBuffer())).toEqual(new TextEncoder().encode(expected));
     expect(filename).toBe(csvFilename());
   });
@@ -235,19 +206,15 @@ describe('App', () => {
     }
   });
 
-  it('hides the colour filter on databases without a Color column', async () => {
+  it('downloads every highlight on databases without a Color column', async () => {
+    const created = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:csv');
+    vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined);
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockReturnValue(undefined);
     await loaded(noColor);
-    expect(screen.queryByRole('group', { name: 'Colors' })).toBeNull();
-    expect(downloadButton().textContent).toContain(`(${noColor.highlights.length} rows)`);
-  });
-
-  it('hides the colour filter when every highlight is yellow', async () => {
-    await loaded({
-      hasColor: true,
-      highlights: library.highlights.map((h) => ({ ...h, color: 'yellow' as const })),
-    });
-    expect(screen.queryByRole('group', { name: 'Colors' })).toBeNull();
-    screen.getByRole('checkbox', { name: 'Notes only' });
+    fireEvent.click(downloadButton());
+    const blob = created.mock.calls[0]?.[0] as Blob;
+    const expected = toCsv(noColor.highlights, { notesOnly: false });
+    expect(new Uint8Array(await blob.arrayBuffer())).toEqual(new TextEncoder().encode(expected));
   });
 
   it('says so when the file has no highlights', async () => {
@@ -321,12 +288,151 @@ describe('App saved library', () => {
     const ascending = tileTexts();
     expect(ascending).toHaveLength(bookCount());
 
-    expect(screen.getByRole('radio', { name: 'Title (A–Z)' })).toHaveProperty('checked', true);
-    fireEvent.click(screen.getByRole('radio', { name: 'Title (Z–A)' }));
+    expect(sortField('Title').textContent).toBe('Title A–Z');
+    sortBy('Title', 'Z–A');
     expect(tileTexts()).toEqual([...ascending].reverse());
+    expect(sortField('Title').textContent).toBe('Title Z–A');
 
     const counted = tileTexts().map((text) => Number(/(\d+) highlights?$/.exec(text)?.[1]));
     expect(counted.reduce((a, b) => a + b, 0)).toBe(library.highlights.length);
+  });
+
+  it('sorts by author and marks the active field and direction', async () => {
+    start(resolving(library), await savedStore());
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    const authors = () =>
+      bookTiles().map((tile) => tile.querySelector('.book-author')?.textContent ?? '');
+    const title = sortField('Title');
+    const author = sortField('Author');
+    expect(title.getAttribute('aria-expanded')).toBe('false');
+    expect(title.classList.contains('is-active')).toBe(true);
+    expect(author.textContent).toBe('Author');
+
+    fireEvent.click(author);
+    expect(author.getAttribute('aria-expanded')).toBe('true');
+    const options = screen.getByRole('group', { name: 'Author order' });
+    expect(author.getAttribute('aria-controls')).toBe(options.id);
+    expect(within(options).getByRole('button', { name: 'A–Z' }).getAttribute('aria-pressed')).toBe(
+      'false',
+    );
+    fireEvent.click(within(options).getByRole('button', { name: 'Z–A' }));
+
+    expect(screen.queryByRole('group', { name: 'Author order' })).toBeNull();
+    expect(document.activeElement).toBe(author);
+    expect(author.textContent).toBe('Author Z–A');
+    expect(author.classList.contains('is-active')).toBe(true);
+    expect(title.textContent).toBe('Title');
+    const sorted = authors();
+    expect(sorted).toEqual(
+      [...sorted].sort((a, b) =>
+        b.localeCompare(a, undefined, { sensitivity: 'base', numeric: true }),
+      ),
+    );
+
+    fireEvent.click(author);
+    expect(
+      within(screen.getByRole('group', { name: 'Author order' }))
+        .getByRole('button', { name: 'Z–A' })
+        .getAttribute('aria-pressed'),
+    ).toBe('true');
+  });
+
+  it('closes the sort options with Escape, another field or a click outside', async () => {
+    start(resolving(library), await savedStore());
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    const title = sortField('Title');
+
+    fireEvent.click(title);
+    const option = within(sortGroup()).getByRole('button', { name: 'Z–A' });
+    option.focus();
+    fireEvent.keyDown(option, { key: 'Escape' });
+    expect(title.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(title);
+
+    fireEvent.click(title);
+    fireEvent.click(sortField('Author'));
+    expect(title.getAttribute('aria-expanded')).toBe('false');
+    expect(sortField('Author').getAttribute('aria-expanded')).toBe('true');
+
+    fireEvent.pointerDown(document.body);
+    expect(sortField('Author').getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('closes the open book and moves to the books from "Check it here"', async () => {
+    const scrolled = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
+    start(resolving(library), await savedStore());
+    fireEvent.click(await screen.findByRole('button', { name: /^The Glass Orchard/ }));
+    expect(screen.queryByRole('region', { name: 'Your books' })).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: /^Check it here/ }));
+    await waitFor(() =>
+      expect(document.activeElement).toBe(
+        screen.getByRole('heading', { level: 2, name: 'Your books' }),
+      ),
+    );
+    expect(screen.queryByRole('region', { name: 'The Glass Orchard' })).toBeNull();
+    expect(scrolled).toHaveBeenCalledOnce();
+  });
+
+  it('closes the sort options when focus leaves the control', async () => {
+    start(resolving(library), await savedStore());
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    const title = sortField('Title');
+    fireEvent.click(title);
+    const option = within(sortGroup()).getByRole('button', { name: 'Z–A' });
+
+    fireEvent.focusOut(title, { relatedTarget: option });
+    expect(title.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.focusOut(option, { relatedTarget: downloadButton() });
+    expect(title.getAttribute('aria-expanded')).toBe('false');
+
+    fireEvent.click(title);
+    const next = within(sortGroup()).getByRole('button', { name: 'Z–A' });
+    fireEvent.focusOut(next, { relatedTarget: sortField('Author') });
+    expect(title.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('closes the sort options with Escape even when no sort button has focus', async () => {
+    start(resolving(library), await savedStore());
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    const author = sortField('Author');
+    fireEvent.click(author);
+    fireEvent.keyDown(document.body, { key: 'Escape' });
+    expect(author.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(author);
+  });
+
+  it.each([
+    [false, 'smooth'],
+    [true, 'auto'],
+  ] as const)('scrolls to the books with reduced motion %s as %s', async (reduce, behavior) => {
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query) => ({ matches: reduce && query.includes('reduce'), media: query }) as MediaQueryList,
+    );
+    const scrolled = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
+    start(resolving(library), await savedStore());
+    fireEvent.click(await screen.findByRole('button', { name: /^Check it here/ }));
+    await waitFor(() => expect(scrolled).toHaveBeenCalledWith({ behavior, block: 'start' }));
+  });
+
+  it('does not jump to the books again after a clear and a new file', async () => {
+    const scrolled = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
+    start(resolving(library), await savedStore());
+    fireEvent.click(await screen.findByRole('button', { name: /^Check it here/ }));
+    await waitFor(() => expect(scrolled).toHaveBeenCalledOnce());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear saved data' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete saved data' }));
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Export' })).toBeNull());
+    choose();
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    await screen.findByText(/saved in this browser/);
+    // Preact runs effects after the next frame, so give the mount effect time to fire.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 150)));
+    expect(scrolled).toHaveBeenCalledOnce();
+    expect(document.activeElement).not.toBe(
+      screen.getByRole('heading', { level: 2, name: 'Your books' }),
+    );
   });
 
   it('clears the saved data after confirmation', async () => {
@@ -344,7 +450,7 @@ describe('App saved library', () => {
   it('opens a book from its tile and returns to the same tile', async () => {
     start(resolving(library), await savedStore());
     await screen.findByRole('heading', { level: 2, name: 'Your books' });
-    fireEvent.click(screen.getByRole('radio', { name: 'Title (Z–A)' }));
+    sortBy('Title', 'Z–A');
     const tile = screen.getByRole('button', { name: /^The Glass Orchard/ });
     fireEvent.click(tile);
 
@@ -357,7 +463,7 @@ describe('App saved library', () => {
     expect(screen.queryByRole('region', { name: 'The Glass Orchard' })).toBeNull();
     screen.getByRole('region', { name: 'Your books' });
     expect(document.activeElement).toBe(tile);
-    expect(screen.getByRole('radio', { name: 'Title (Z–A)' })).toHaveProperty('checked', true);
+    expect(sortField('Title').textContent).toBe('Title Z–A');
   });
 
   it('closes the open book when a new file is loaded or the data is cleared', async () => {

@@ -1,6 +1,6 @@
 # kobo-annotations
 
-Export the highlights from your Kobo e-reader to a CSV file, filtered by highlight color.
+Export the highlights from your Kobo e-reader to a CSV file, all at once or one book at a time.
 Everything runs in your browser: your reading data never leaves your computer.
 
 Open it at <https://beatrizjover.github.io/kobo-annotations/>. In Chrome, Edge or Safari
@@ -45,13 +45,12 @@ The app reads the file on your computer. It never uploads it and never changes i
 
 The app shows how many highlights and books it found.
 
-- **Colors**: untick the colors you don't want. The number next to each color is its count.
-  If your Kobo has no colored highlights, or all your highlights are yellow, this section is
-  hidden.
-- **Notes only**: tick it to export only the highlights where you wrote a note.
-
-Click **Download CSV**. The file is saved as `kobo-highlights-YYYY-MM-DD.csv`, usually in
-your Downloads folder.
+- **Download CSV** exports every highlight. The file is saved as
+  `kobo-highlights-YYYY-MM-DD.csv`, usually in your Downloads folder.
+- **Check it here** takes you to your books. Click a book to read its highlights. There you
+  can untick colors, switch to the **Notes** tab and click **Download this book** to export
+  only what you see. If your Kobo has no colored highlights, or all your highlights are
+  yellow, the colors are hidden.
 
 ### 5. Open the CSV
 
@@ -77,7 +76,7 @@ books stay in that copy, and you can load it in the app later.
 - **"No highlights or notes were found in this file"**: the Kobo has no highlights yet, or you
   loaded an old copy of the file.
 - **"Something went wrong while reading the file"**: reload the page and try again.
-- **"No highlights match the selected filters"**: tick more colors, or untick **Notes only**.
+- **"No highlights match the selected colors"**: in the book, tick more colors or **All**.
 - **Excel shows everything in one column**: the file uses `;` between columns, and your Excel
   expects `,`. In Excel, go to **Data › From Text/CSV**, choose the file and pick
   **Semicolon** as the delimiter.

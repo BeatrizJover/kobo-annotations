@@ -8,6 +8,7 @@ import { DropZone } from './DropZone';
 import { ExportPanel } from './ExportPanel';
 import { FileHelp } from './FileHelp';
 import { Library } from './Library';
+import { ReadingIllustration } from './ReadingIllustration';
 import { SavedData } from './SavedData';
 
 type Task =
@@ -19,8 +20,6 @@ interface Shown {
   library: KoboLibrary;
   /** Whether `library` is what the browser has saved. */
   saved: boolean;
-  /** Changes on every upload so the export filters reset. */
-  key: number;
 }
 
 const PHASE_LABELS: Record<Phase, string> = {
@@ -77,7 +76,8 @@ export function App({ load, store }: AppProps) {
   const [openBook, setOpenBook] = useState<string | null>(null);
   // Only Back returns focus to the book tile; a new file keeps it where the user is.
   const [returning, setReturning] = useState(false);
-  const keys = useRef(0);
+  // Bumped by "Check it here" so the library scrolls into view.
+  const [reveal, setReveal] = useState(0);
   // A file read before the saved data arrives wins over it.
   const opened = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -89,7 +89,7 @@ export function App({ load, store }: AppProps) {
       (library) => {
         if (!active || library.highlights.length === 0) return;
         setHasSaved(true);
-        if (!opened.current) setShown({ library, saved: true, key: ++keys.current });
+        if (!opened.current) setShown({ library, saved: true });
       },
       (error: unknown) => {
         if (!active || opened.current) return;
@@ -115,12 +115,12 @@ export function App({ load, store }: AppProps) {
     setReturning(false);
     try {
       const library = await store.save(parsed);
-      setShown({ library, saved: true, key: ++keys.current });
+      setShown({ library, saved: true });
       setHasSaved(true);
       setStoreError(null);
       void persistStorage();
     } catch (error) {
-      setShown({ library: parsed, saved: false, key: ++keys.current });
+      setShown({ library: parsed, saved: false });
       setStoreError(storeErrorCode(error));
     }
     setTask({ status: 'idle' });
@@ -154,12 +154,17 @@ export function App({ load, store }: AppProps) {
         fileInput.current?.focus();
         return;
       }
-      // Keeps the key so the export filters survive.
-      setShown((current) => ({ library, saved: true, key: current?.key ?? ++keys.current }));
+      setShown({ library, saved: true });
       setReturning(true);
     } catch (error) {
       setStoreError(storeErrorCode(error));
     }
+  };
+
+  const showBooks = () => {
+    setOpenBook(null);
+    setReturning(false);
+    setReveal((count) => count + 1);
   };
 
   const busy = task.status === 'loading';
@@ -169,7 +174,13 @@ export function App({ load, store }: AppProps) {
       <h1>Kobo Annotations</h1>
       <p>Export your Kobo highlights to CSV. Your data never leaves this computer.</p>
 
-      <DropZone busy={busy} onFile={open} inputRef={fileInput} />
+      <div class="upload">
+        <div>
+          <DropZone busy={busy} onFile={open} inputRef={fileInput} />
+          <FileHelp />
+        </div>
+        <ReadingIllustration />
+      </div>
 
       <div class="status" role="status">
         {task.status === 'loading' && (
@@ -192,11 +203,12 @@ export function App({ load, store }: AppProps) {
 
       {shown && (
         <>
-          <ExportPanel key={shown.key} library={shown.library} />
+          <ExportPanel library={shown.library} onShowBooks={showBooks} />
           <Library
             library={shown.library}
             hidden={openBook !== null}
             restoreFocus={returning}
+            reveal={reveal}
             onOpen={setOpenBook}
           />
           {openBook !== null && (
@@ -215,8 +227,6 @@ export function App({ load, store }: AppProps) {
       {(hasSaved || storeError === 'failed') && (
         <SavedData current={shown?.saved ?? false} disabled={busy} onClear={clear} />
       )}
-
-      <FileHelp />
     </main>
   );
 }

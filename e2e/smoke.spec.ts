@@ -32,7 +32,7 @@ async function collectErrors(page: Page): Promise<string[]> {
 // Fields never contain CR in the fixture, so CRLF only separates records.
 const records = (csv: string) => csv.split('\r\n').filter(Boolean).sort();
 
-test('loads the fixture, filters out pink and downloads the CSV', async ({ page }) => {
+test('loads the fixture and downloads every highlight as CSV', async ({ page }) => {
   const errors = await collectErrors(page);
   await page.goto('./');
   const csp = await page
@@ -44,10 +44,9 @@ test('loads the fixture, filters out pink and downloads the CSV', async ({ page 
   await page.getByLabel('Choose file').setInputFiles(FIXTURE);
   await expect(page.getByText(/^Found .+ highlights in .+ books\.$/)).toBeVisible();
 
-  await page.getByRole('checkbox', { name: /^Pink/ }).uncheck();
   const [download] = await Promise.all([
     page.waitForEvent('download'),
-    page.getByRole('button', { name: /^Download CSV/ }).click(),
+    page.getByRole('button', { name: 'Download CSV' }).click(),
   ]);
   expect(download.suggestedFilename()).toMatch(/^kobo-highlights-\d{4}-\d{2}-\d{2}\.csv$/);
 
@@ -55,15 +54,11 @@ test('loads the fixture, filters out pink and downloads the CSV', async ({ page 
   expect([...bytes.subarray(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
   const csv = bytes.toString('utf8');
   expect(csv.slice(1).startsWith(`${HEADER}\r\n`)).toBe(true);
-  expect(csv).not.toContain('"pink"');
 
   // Sorting the records ignores collation differences between the browser and Node.
   const SQL = await initSqlJs();
   const library = parseKobo(SQL, new Uint8Array(await readFile(FIXTURE)));
-  const expected = toCsv(library.highlights, {
-    colors: ['yellow', 'blue', 'green'],
-    notesOnly: false,
-  });
+  const expected = toCsv(library.highlights, { notesOnly: false });
   expect(records(csv.slice(1))).toEqual(records(expected.slice(1)));
   expect(errors).toEqual([]);
 });
