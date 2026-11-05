@@ -36,7 +36,8 @@ beforeAll(() => {
   process.env.TZ = 'Europe/Madrid';
 });
 afterAll(() => {
-  process.env.TZ = originalTz;
+  if (originalTz === undefined) delete process.env.TZ;
+  else process.env.TZ = originalTz;
 });
 
 describe('toCsv', () => {
@@ -59,9 +60,12 @@ describe('toCsv', () => {
   });
 
   it.each(['=', '+', '-', '@', '\t', '\r'])('guards fields starting with %j', (start) => {
-    const csv = toCsv([make({ book: `${start}x`, text: `${start}1` })], NO_FILTER);
+    const csv = toCsv(
+      [make({ book: `${start}x`, text: `${start}1`, note: `${start}2` })],
+      NO_FILTER,
+    );
     expect(body(csv).startsWith(`"'${start}x";`)).toBe(true);
-    expect(body(csv)).toContain(`"'${start}1"`);
+    expect(body(csv)).toContain(`"'${start}1";"'${start}2"`);
   });
 
   it('does not guard a formula character in the middle of a field', () => {
@@ -157,6 +161,7 @@ describe('fixture export', () => {
       readFileSync(new URL('../fixtures/KoboReader.sqlite', import.meta.url)),
     );
     const { highlights } = parseKobo(SQL, bytes);
+    expect(highlights.some((h) => `${h.text}${h.note}`.includes('\r'))).toBe(false);
     const csv = toCsv(highlights, { colors: ALL, notesOnly: false });
     expect(csv.startsWith(`\uFEFF${HEADER}`)).toBe(true);
     expect(body(csv).split('\r\n').slice(0, -1)).toHaveLength(highlights.length);

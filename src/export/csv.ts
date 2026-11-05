@@ -33,7 +33,7 @@ export function filterHighlights(
   highlights: readonly Highlight[],
   filter: ExportFilter,
 ): Highlight[] {
-  const selected = filter.colors && new Set(filter.colors);
+  const selected = filter.colors ? new Set(filter.colors) : undefined;
   const allColors = !selected || COLORS.every((color) => selected.has(color));
   return highlights.filter(
     (h) =>
