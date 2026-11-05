@@ -14,7 +14,8 @@ export function FileHelp() {
         </li>
         <li>
           If there is no <strong>.kobo</strong> folder, in File Explorer go to{' '}
-          <strong>View › Show › Hidden items</strong>.
+          <strong>View › Show › Hidden items</strong> (Windows 11) or tick{' '}
+          <strong>View › Hidden items</strong> (Windows 10).
         </li>
       </ol>
       <h3>Linux</h3>
@@ -32,6 +33,11 @@ export function FileHelp() {
         </li>
       </ol>
       <p>The file is only read, never changed. Eject the Kobo when you are done.</p>
+      <p>
+        Tip: before you sync or delete books, copy <strong>KoboReader.sqlite</strong> to your
+        computer with the date in its name, for example <code>KoboReader_20261105.sqlite</code>.
+        Highlights of deleted books stay in that copy, and you can load it here later.
+      </p>
     </details>
   );
 }
