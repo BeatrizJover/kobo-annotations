@@ -1,4 +1,4 @@
-/* Component styles; every value comes from the tokens in src/styles/theme.css. */
+/* Component styles; design values come from the tokens in src/styles/theme.css. */
 .visually-hidden {
   position: absolute;
   width: 1px;

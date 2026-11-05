@@ -108,6 +108,36 @@ describe('App', () => {
     expect(load).toHaveBeenCalledWith(dropped, expect.any(Function));
   });
 
+  it('keeps the drop highlight while dragging over child elements', () => {
+    render(<App load={resolving(library)} />);
+    const zone = screen.getByTestId('drop-zone');
+    fireEvent.dragEnter(zone);
+    fireEvent.dragEnter(zone.querySelector('label') as Element);
+    fireEvent.dragLeave(zone);
+    expect(zone.classList.contains('is-over')).toBe(true);
+    fireEvent.dragLeave(zone);
+    expect(zone.classList.contains('is-over')).toBe(false);
+  });
+
+  it('refuses drops while a file is loading', async () => {
+    const load = vi.fn<LoadLibrary>(() => new Promise(() => undefined));
+    render(<App load={load} />);
+    choose();
+    await screen.findByText('Reading the file…');
+
+    const zone = screen.getByTestId('drop-zone');
+    let dropEffect = '';
+    zone.addEventListener('dragover', (event) => {
+      dropEffect = event.dataTransfer?.dropEffect ?? '';
+    });
+    fireEvent.dragEnter(zone);
+    fireEvent.dragOver(zone, { dataTransfer: { dropEffect: 'copy' } });
+    expect(dropEffect).toBe('none');
+    expect(zone.classList.contains('is-over')).toBe(false);
+    fireEvent.drop(zone, { dataTransfer: { files: [file()] } });
+    expect(load).toHaveBeenCalledOnce();
+  });
+
   it('summarises the library and counts each colour', async () => {
     await loaded(library);
     const books = new Set(library.highlights.map((h) => h.bookId)).size;
@@ -171,6 +201,23 @@ describe('App', () => {
     });
     expect(new Uint8Array(await blob.arrayBuffer())).toEqual(new TextEncoder().encode(expected));
     expect(filename).toBe(csvFilename());
+  });
+
+  it('revokes the download URL once the browser has had time to read it', async () => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:csv');
+    const revoked = vi.spyOn(URL, 'revokeObjectURL').mockReturnValue(undefined);
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockReturnValue(undefined);
+    await loaded(library);
+
+    vi.useFakeTimers();
+    try {
+      fireEvent.click(downloadButton());
+      expect(revoked).not.toHaveBeenCalled();
+      vi.advanceTimersByTime(30_000);
+      expect(revoked).toHaveBeenCalledWith('blob:csv');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('hides the colour filter on databases without a Color column', async () => {

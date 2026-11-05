@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useRef, useState } from 'preact/hooks';
 
 interface DropZoneProps {
   busy: boolean;
@@ -7,6 +7,8 @@ interface DropZoneProps {
 
 export function DropZone({ busy, onFile }: DropZoneProps) {
   const [over, setOver] = useState(false);
+  // Counts nested enter/leave pairs, since Safari's dragleave carries no relatedTarget.
+  const depth = useRef(0);
 
   const pick = (files: FileList | null | undefined) => {
     const file = files?.[0];
@@ -15,17 +17,23 @@ export function DropZone({ busy, onFile }: DropZoneProps) {
 
   return (
     <div
-      class={over ? 'drop-zone is-over' : 'drop-zone'}
+      class={over && !busy ? 'drop-zone is-over' : 'drop-zone'}
       data-testid="drop-zone"
+      onDragEnter={() => {
+        depth.current++;
+        setOver(true);
+      }}
       onDragOver={(event) => {
         event.preventDefault();
-        setOver(!busy);
+        if (event.dataTransfer) event.dataTransfer.dropEffect = busy ? 'none' : 'copy';
       }}
-      onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setOver(false);
+      onDragLeave={() => {
+        depth.current = Math.max(0, depth.current - 1);
+        if (depth.current === 0) setOver(false);
       }}
       onDrop={(event) => {
         event.preventDefault();
+        depth.current = 0;
         setOver(false);
         pick(event.dataTransfer?.files);
       }}

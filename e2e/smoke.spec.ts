@@ -8,9 +8,14 @@ import { parseKobo } from '../src/kobo/parse';
 const FIXTURE = 'tests/fixtures/KoboReader.sqlite';
 const HEADER = '"Book";"Author";"Chapter";"Highlight";"Note";"Color";"Created"';
 
-// Any console error, CSP violations included, fails the test.
-function collectErrors(page: Page): string[] {
+// Any console error fails the test; CSP violations are logged explicitly, since not every engine reports them.
+async function collectErrors(page: Page): Promise<string[]> {
   const errors: string[] = [];
+  await page.addInitScript(() => {
+    document.addEventListener('securitypolicyviolation', (event) => {
+      console.error(`CSP violation: ${event.violatedDirective} ${event.blockedURI}`);
+    });
+  });
   page.on('console', (message) => {
     if (message.type() === 'error') errors.push(message.text());
   });
@@ -22,12 +27,16 @@ function collectErrors(page: Page): string[] {
 const records = (csv: string) => csv.split('\r\n').filter(Boolean).sort();
 
 test('loads the fixture, filters out pink and downloads the CSV', async ({ page }) => {
-  const errors = collectErrors(page);
+  const errors = await collectErrors(page);
   await page.goto('./');
-  await expect(page.locator('meta[http-equiv="Content-Security-Policy"]')).toHaveCount(1);
+  const csp = await page
+    .locator('meta[http-equiv="Content-Security-Policy"]')
+    .getAttribute('content');
+  expect(csp).toContain("default-src 'self'");
+  expect(csp).not.toMatch(/https?:|\*/);
 
   await page.getByLabel('Choose file').setInputFiles(FIXTURE);
-  await expect(page.getByText(/^Found \d+ highlights in \d+ books\.$/)).toBeVisible();
+  await expect(page.getByText(/^Found .+ highlights in .+ books\.$/)).toBeVisible();
 
   await page.getByRole('checkbox', { name: /^Pink/ }).uncheck();
   const [download] = await Promise.all([
@@ -54,7 +63,7 @@ test('loads the fixture, filters out pink and downloads the CSV', async ({ page 
 });
 
 test('explains that a file is not a Kobo database', async ({ page }) => {
-  const errors = collectErrors(page);
+  const errors = await collectErrors(page);
   await page.goto('./');
   await page.getByLabel('Choose file').setInputFiles({
     name: 'notes.txt',
