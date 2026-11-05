@@ -22,6 +22,7 @@ const CONTENT_COLUMNS = [
   'contentid',
   'contenttype',
   'bookid',
+  'chapteridbookmarked',
   'title',
   'attribution',
   'volumeindex',

@@ -63,6 +63,10 @@ const EDGE_CASES: [string, string][] = [
        AND a.VolumeIndex < b.VolumeIndex AND fa.VolumeIndex > fb.VolumeIndex`,
   ],
   [
+    'a TOC entry whose file name contains #',
+    `SELECT 1 FROM content WHERE ContentType = '899' AND instr(ChapterIDBookmarked, '#') > 0`,
+  ],
+  [
     'an annotated book without a TOC',
     `SELECT 1 FROM Bookmark b WHERE ${EXPORTED} AND NOT EXISTS
        (SELECT 1 FROM content t WHERE t.ContentType = '899' AND t.BookID = b.VolumeID)`,

@@ -100,7 +100,7 @@ const BOOKS: Book[] = [
     toc: FARO_TOC,
   },
   {
-    id: `${SIDELOAD}rtl-sample.kepub.epub`,
+    id: `${SIDELOAD}rtl #1 sample.kepub.epub`,
     title: 'كتاب تجريبي',
     author: 'مؤلف مجهول',
     language: 'ar',

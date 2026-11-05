@@ -1,5 +1,5 @@
 import type { Database } from 'sql.js';
-import { clean, num, text } from './cells';
+import { clean, text } from './cells';
 
 export interface ChapterTitle {
   chapter: string;
@@ -65,20 +65,23 @@ export function loadToc(db: Database): ChapterResolver {
   const byBook = new Map<string, Entry[]>();
 
   const [result] = db.exec(
-    `SELECT BookID, ContentID, Title FROM content
+    `SELECT BookID, ContentID, ChapterIDBookmarked, Title FROM content
      WHERE ContentType = '899' AND BookID IN (${ANNOTATED_BOOKS})
-     ORDER BY BookID, VolumeIndex`,
+     ORDER BY BookID, VolumeIndex, ContentID`,
   );
   let currentBook: string | undefined;
   let no = 0;
-  for (const [bookCell, idCell, title] of result?.values ?? []) {
+  for (const [bookCell, idCell, fileCell, title] of result?.values ?? []) {
     const bookId = text(bookCell);
     no = bookId === currentBook ? no + 1 : 1;
     currentBook = bookId;
 
     const target = text(idCell).replace(TOC_SUFFIX, '');
-    const file = target.split('#', 1)[0] ?? '';
-    const fileIndex = num(fileIndexes.get(file), -1);
+    // ChapterIDBookmarked is the file itself, which may contain `#` in a sideloaded file name.
+    const bookmarked = text(fileCell);
+    const file =
+      bookmarked && target.startsWith(bookmarked) ? bookmarked : (target.split('#', 1)[0] ?? '');
+    const fileIndex = fileIndexes.get(file) ?? -1;
     if (fileIndex < 0) continue;
 
     const entry: Entry = { title: clean(title), no, fileIndex };
