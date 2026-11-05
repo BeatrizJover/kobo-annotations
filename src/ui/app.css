@@ -295,6 +295,40 @@
   font-weight: var(--font-weight-strong);
 }
 
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-1);
+}
+
+.tag {
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-1);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-small);
+}
+
+.tag-new {
+  border-color: var(--color-accent);
+  background: var(--color-tag-new-bg);
+  color: var(--color-accent);
+  font-weight: var(--font-weight-strong);
+}
+
+.book-gone {
+  margin-bottom: var(--space-3);
+}
+
+.book-gone .notice {
+  margin: 0 0 var(--space-2);
+}
+
+.forget p {
+  margin: 0;
+}
+
 .saved-data {
   margin-top: var(--space-4);
 }

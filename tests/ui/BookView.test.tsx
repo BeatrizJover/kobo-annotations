@@ -5,6 +5,7 @@ import initSqlJs from 'sql.js';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { parseKobo } from '../../src/kobo/parse';
 import type { Highlight, KoboLibrary } from '../../src/kobo/types';
+import type { SavedLibrary } from '../../src/store/types';
 import { BookView } from '../../src/ui/BookView';
 
 let library: KoboLibrary;
@@ -173,5 +174,47 @@ describe('BookView', () => {
     expect(document.activeElement).toBe(backButton);
     fireEvent.click(backButton);
     expect(onBack).toHaveBeenCalledOnce();
+  });
+
+  it('tags new rows and rows no longer on the Kobo, without a forget option', () => {
+    const id = bookOf(library, 'The Glass Orchard');
+    const [fresh, gone, ...rest] = rowsOf(library, id);
+    if (!fresh || !gone) throw new Error('fixture book too small');
+    const saved: SavedLibrary = {
+      hasColor: true,
+      imports: [1, 2].map((n) => ({
+        id: n,
+        at: '2026-01-01T00:00:00.000Z',
+        hasColor: true,
+        total: 0,
+        added: 0,
+        removed: 0,
+      })),
+      highlights: [
+        { ...fresh, firstSeen: 2, lastSeen: 2, onDevice: true },
+        { ...gone, firstSeen: 1, lastSeen: 1, onDevice: false },
+        ...rest.map((h) => ({ ...h, firstSeen: 1, lastSeen: 2, onDevice: true })),
+      ],
+    };
+    show(saved, id);
+    const tagged = (text: string) =>
+      cards()
+        .filter((card) => within(card).queryByText(text))
+        .map((card) => card.querySelector('.card-text')?.textContent);
+    expect(tagged('New')).toEqual([fresh.text]);
+    expect(tagged('Not on your Kobo')).toEqual([gone.text]);
+    expect(screen.queryByText(/no longer on your Kobo/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Forget this book' })).toBeNull();
+  });
+
+  it('counts the rows the book download will hold', () => {
+    const id = bookOf(library, 'The Glass Orchard');
+    show(library, id);
+    const button = () => screen.getByRole('button', { name: /^Download this book/ });
+    expect(button().textContent).toBe(`Download this book (${rowsOf(library, id).length} rows)`);
+    fireEvent.click(screen.getByRole('checkbox', { name: /^All$/ }));
+    expect(button()).toHaveProperty('disabled', true);
+    fireEvent.click(tab(/^Stats/));
+    expect(screen.queryByRole('button', { name: /^Download this book/ })).toBeNull();
   });
 });

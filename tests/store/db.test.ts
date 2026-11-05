@@ -89,6 +89,33 @@ describe('createIdbStore', () => {
     expect((await store.save(library)).imports[0]?.id).toBe(1);
   });
 
+  it('forgets one book and keeps the rest and the uploads', async () => {
+    await store.save(library);
+    const gone = library.highlights[0]?.bookId;
+    const left = await store.forgetBook(gone ?? '');
+
+    expect(ids(left.highlights)).toEqual(ids(library.highlights.filter((h) => h.bookId !== gone)));
+    expect(left.imports).toHaveLength(1);
+    expect(left.hasColor).toBe(true);
+    expect(await createIdbStore(factory).load()).toEqual(left);
+  });
+
+  it('drops the uploads too when the last book is forgotten', async () => {
+    await store.save(library);
+    let left = await store.load();
+    for (const id of new Set(library.highlights.map((h) => h.bookId))) {
+      left = await store.forgetBook(id);
+    }
+    expect(left).toEqual(EMPTY);
+    expect(await store.load()).toEqual(EMPTY);
+    expect((await store.save(library)).imports[0]?.id).toBe(1);
+  });
+
+  it('leaves the store untouched when forgetting an unknown book', async () => {
+    const saved = await store.save(library);
+    expect(await store.forgetBook('missing-volume')).toEqual(saved);
+  });
+
   it('rolls back a failed save', async () => {
     const before = await store.save(library);
     const broken = { ...library.highlights[0], id: undefined } as unknown as Highlight;
