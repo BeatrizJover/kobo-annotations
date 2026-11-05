@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 
-export function ForgetBook({ onForget }: { onForget: () => Promise<void> }) {
+interface ForgetBookProps {
+  /** Must handle its own errors and never reject; a failure keeps this component mounted. */
+  onForget: () => Promise<void>;
+}
+
+export function ForgetBook({ onForget }: ForgetBookProps) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const forgetButton = useRef<HTMLButtonElement>(null);
