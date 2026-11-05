@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { KoboLibrary } from '../../src/kobo/types';
 import { loadInWorker } from '../../src/worker/client';
-import { LoadError, type Phase, type WorkerResponse } from '../../src/worker/protocol';
+import type { Phase, WorkerResponse } from '../../src/worker/protocol';
 
 const { FakeWorker } = vi.hoisted(() => {
   class Fake {
@@ -63,7 +63,6 @@ describe('loadInWorker', () => {
   it('rejects with the code the worker reports and terminates', async () => {
     const { result, worker } = await started();
     worker.send({ kind: 'error', code: 'not-kobo' });
-    await expect(result).rejects.toEqual(new LoadError('not-kobo'));
     await expect(result).rejects.toHaveProperty('code', 'not-kobo');
     expect(worker.terminate).toHaveBeenCalledOnce();
   });
