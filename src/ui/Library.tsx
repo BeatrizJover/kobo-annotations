@@ -40,7 +40,8 @@ export function Library({ highlights }: { highlights: readonly Highlight[] }) {
           </select>
         </label>
       </div>
-      <ul class="book-grid">
+      {/* Safari drops list semantics when list-style is none. */}
+      <ul class="book-grid" role="list">
         {sorted.map((book) => (
           <li key={book.id} class="book-tile">
             <span class="book-title" dir="auto">

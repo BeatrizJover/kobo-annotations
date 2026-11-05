@@ -246,6 +246,11 @@
   cursor: pointer;
 }
 
+.button-plain:disabled {
+  color: var(--color-disabled);
+  cursor: not-allowed;
+}
+
 .button-plain:focus-visible {
   outline: var(--border-width-strong) solid var(--color-accent);
   outline-offset: var(--border-width-strong);

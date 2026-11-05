@@ -71,8 +71,10 @@ export function App({ load, store }: AppProps) {
   const [task, setTask] = useState<Task>({ status: 'idle' });
   const [shown, setShown] = useState<Shown | null>(null);
   const [storeError, setStoreError] = useState<StoreErrorCode | null>(null);
+  // Whether the browser holds saved highlights, which may differ from what is shown.
+  const [hasSaved, setHasSaved] = useState(false);
   const keys = useRef(0);
-  // A file picked before the saved data arrives wins over it.
+  // A file read before the saved data arrives wins over it.
   const opened = useRef(false);
   useBlockStrayDrops();
 
@@ -82,6 +84,7 @@ export function App({ load, store }: AppProps) {
       (library) => {
         if (!active || opened.current || library.highlights.length === 0) return;
         setShown({ library, saved: true, key: ++keys.current });
+        setHasSaved(true);
       },
       (error: unknown) => {
         if (!active || opened.current) return;
@@ -94,7 +97,6 @@ export function App({ load, store }: AppProps) {
   }, [store]);
 
   const open = async (file: File) => {
-    opened.current = true;
     setTask({ status: 'loading', phase: 'reading' });
     let parsed: KoboLibrary;
     try {
@@ -103,9 +105,11 @@ export function App({ load, store }: AppProps) {
       setTask({ status: 'error', code: error instanceof LoadError ? error.code : 'unexpected' });
       return;
     }
+    opened.current = true;
     try {
       const library = await store.save(parsed);
       setShown({ library, saved: true, key: ++keys.current });
+      setHasSaved(true);
       setStoreError(null);
       void persistStorage();
     } catch (error) {
@@ -119,6 +123,7 @@ export function App({ load, store }: AppProps) {
     try {
       await store.clear();
       setShown(null);
+      setHasSaved(false);
       setStoreError(null);
     } catch (error) {
       setStoreError(storeErrorCode(error));
@@ -157,8 +162,10 @@ export function App({ load, store }: AppProps) {
         <>
           <ExportPanel key={shown.key} library={shown.library} />
           <Library highlights={shown.library.highlights} />
-          <SavedData saved={shown.saved} onClear={clear} />
         </>
+      )}
+      {(hasSaved || storeError === 'failed') && (
+        <SavedData current={shown?.saved ?? false} disabled={busy} onClear={clear} />
       )}
 
       <FileHelp />
