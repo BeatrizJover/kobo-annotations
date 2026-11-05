@@ -69,7 +69,11 @@ function open(factory: IDBFactory, onClose: () => void): Promise<IDBDatabase> {
     }
   };
   const blocked = new Promise<never>((_, reject) => {
-    req.onblocked = () => reject(new Error('IndexedDB upgrade blocked by another tab'));
+    req.onblocked = () => {
+      // The open may still succeed later; nobody would own that connection.
+      req.onsuccess = () => req.result.close();
+      reject(new Error('IndexedDB upgrade blocked by another tab'));
+    };
   });
   return Promise.race([request(req), blocked]).then((db) => {
     // Lets a newer version of the app, open in another tab, upgrade the schema.

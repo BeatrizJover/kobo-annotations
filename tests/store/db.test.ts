@@ -112,6 +112,7 @@ describe('createIdbStore', () => {
     expect((error as StoreError).code).toBe('failed');
     expect((error as StoreError).cause).toMatchObject({ name: 'ConstraintError' });
 
+    // Undo the broken add before reading back what was saved.
     vi.restoreAllMocks();
     expect(await store.load()).toEqual(before);
   });
