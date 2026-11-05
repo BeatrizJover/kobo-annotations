@@ -79,8 +79,8 @@ export function loadToc(db: Database): ChapterResolver {
     const target = text(idCell).replace(TOC_SUFFIX, '');
     // ChapterIDBookmarked is the file itself, which may contain `#` in a sideloaded file name.
     const bookmarked = text(fileCell);
-    const file =
-      bookmarked && target.startsWith(bookmarked) ? bookmarked : (target.split('#', 1)[0] ?? '');
+    const isFile = bookmarked && (target === bookmarked || target.startsWith(`${bookmarked}#`));
+    const file = isFile ? bookmarked : (target.split('#', 1)[0] ?? '');
     const fileIndex = fileIndexes.get(file) ?? -1;
     if (fileIndex < 0) continue;
 
