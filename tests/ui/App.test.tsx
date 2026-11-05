@@ -374,6 +374,39 @@ describe('App saved library', () => {
     expect(scrolled).toHaveBeenCalledOnce();
   });
 
+  it('closes the sort options when focus leaves the control', async () => {
+    start(resolving(library), await savedStore());
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    const title = sortField('Title');
+    fireEvent.click(title);
+    const option = within(sortGroup()).getByRole('button', { name: 'Z–A' });
+
+    fireEvent.focusOut(title, { relatedTarget: option });
+    expect(title.getAttribute('aria-expanded')).toBe('true');
+    fireEvent.focusOut(option, { relatedTarget: downloadButton() });
+    expect(title.getAttribute('aria-expanded')).toBe('false');
+  });
+
+  it('does not jump to the books again after a clear and a new file', async () => {
+    const scrolled = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
+    start(resolving(library), await savedStore());
+    fireEvent.click(await screen.findByRole('link', { name: /^Check it here/ }));
+    await waitFor(() => expect(scrolled).toHaveBeenCalledOnce());
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear saved data' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete saved data' }));
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Export' })).toBeNull());
+    choose();
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    await screen.findByText(/saved in this browser/);
+    // Preact runs effects after the next frame, so give the mount effect time to fire.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 150)));
+    expect(scrolled).toHaveBeenCalledOnce();
+    expect(document.activeElement).not.toBe(
+      screen.getByRole('heading', { level: 2, name: 'Your books' }),
+    );
+  });
+
   it('clears the saved data after confirmation', async () => {
     const store = await savedStore();
     start(resolving(library), store);

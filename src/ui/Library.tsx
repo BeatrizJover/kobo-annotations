@@ -30,8 +30,11 @@ export function Library({ library, hidden, restoreFocus, reveal, onOpen }: Libra
     else heading.current?.focus();
   }, [hidden, restoreFocus, library]);
 
+  // Starts at the current value so a remount (after a clear) doesn't scroll by itself.
+  const revealed = useRef(reveal);
   useEffect(() => {
-    if (reveal === 0 || !heading.current) return;
+    if (reveal === revealed.current || !heading.current) return;
+    revealed.current = reveal;
     const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     heading.current.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
     heading.current.focus({ preventScroll: true });
