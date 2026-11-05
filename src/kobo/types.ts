@@ -11,8 +11,11 @@ export interface Highlight {
   bookId: string;
   book: string;
   author: string;
+  /** Title from the book's table of contents, '' when unresolved. */
   chapter: string;
-  /** content.VolumeIndex of the chapter, -1 when the chapter can't be resolved. */
+  /** 1-based position of that title in the book's table of contents, null when unresolved. */
+  chapterNo: number | null;
+  /** content.VolumeIndex of the chapter file, -1 when the file can't be resolved. */
   chapterIndex: number;
   /** Position within the chapter, 0..1. */
   progress: number;

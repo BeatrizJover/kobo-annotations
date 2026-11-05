@@ -5,12 +5,22 @@ import initSqlJs from 'sql.js';
 type SqlJsStatic = initSqlJs.SqlJsStatic;
 type Type = 'highlight' | 'note' | 'dogear' | 'markup';
 
+interface TocEntry {
+  file: string;
+  anchor?: string;
+  title: string;
+  depth: number;
+}
+
 interface Book {
   id: string;
   title: string;
   author: string;
   language: string;
-  chapters: { file: string; title: string | null }[];
+  /** Kobo stores the file path as the chapter title; `title` overrides it. */
+  chapters: { file: string; title?: string | null }[];
+  /** Table of contents in reading order (content type 899). */
+  toc: TocEntry[];
 }
 
 interface Mark {
@@ -33,6 +43,11 @@ const SIDELOAD = 'file:///mnt/onboard/Synthetic/';
 const STORE_ID = '0b7e4c2a-5d1f-4e8a-9c3b-6a2d8f1e0c47';
 const DUPLICATE_ID = `${SIDELOAD}Eva Rumbo - El Faro Apagado.kepub.epub`;
 
+const FARO_TOC: TocEntry[] = [
+  { file: 'Text/cap01.xhtml', title: 'Capítulo uno', depth: 1 },
+  { file: 'Text/cap02.xhtml', title: 'Medianoche', depth: 1 },
+];
+
 const BOOKS: Book[] = [
   {
     id: `${SIDELOAD}Ada Quill - The Glass Orchard.kepub.epub`,
@@ -40,9 +55,16 @@ const BOOKS: Book[] = [
     author: 'Ada Quill',
     language: 'en',
     chapters: [
-      { file: 'Text/ch01.xhtml', title: 'Seeds' },
+      { file: 'Text/ch01.xhtml' },
       { file: 'Text/ch02.xhtml', title: '' },
-      { file: 'Text/ch03.xhtml', title: 'Frost' },
+      { file: 'Text/ch03.xhtml' },
+    ],
+    // ch03 has no entry, so it inherits the last one of ch02; notes.xhtml is not a chapter file.
+    toc: [
+      { file: 'Text/ch01.xhtml', title: 'Seeds', depth: 1 },
+      { file: 'Text/ch02.xhtml', anchor: 'section-1', title: 'Interlude', depth: 1 },
+      { file: 'Text/ch02.xhtml', anchor: 'section-2', title: 'Second\u00AD Section ', depth: 2 },
+      { file: 'Text/notes.xhtml', title: 'Endnotes', depth: 1 },
     ],
   },
   {
@@ -50,31 +72,40 @@ const BOOKS: Book[] = [
     title: 'Shared Title',
     author: 'Bo Lantern, Cy Marsh',
     language: 'en',
-    chapters: [{ file: 'Text/part1.xhtml', title: 'Part One' }],
+    chapters: [
+      { file: 'Text/part1.xhtml' },
+      { file: 'Text/part2.xhtml' },
+      { file: 'Text/part3.xhtml' },
+    ],
+    // The TOC lists a later file first; part3 inherits from part2, the last entry in file order.
+    toc: [
+      { file: 'Text/part2.xhtml', title: 'Part Two', depth: 1 },
+      { file: 'Text/part1.xhtml', title: 'Part One', depth: 1 },
+    ],
   },
   {
     id: `${SIDELOAD}Dee Harrow - Shared Title.kepub.epub`,
     title: 'Shared Title',
     author: 'Dee Harrow',
     language: 'en',
-    chapters: [{ file: 'Text/intro.xhtml', title: 'Introduction' }],
+    chapters: [{ file: 'Text/intro.xhtml' }],
+    toc: [],
   },
   {
     id: STORE_ID,
     title: 'El Faro Apagado',
     author: 'Eva Rumbo',
     language: 'es',
-    chapters: [
-      { file: 'Text/cap01.xhtml', title: null },
-      { file: 'Text/cap02.xhtml', title: 'Medianoche' },
-    ],
+    chapters: [{ file: 'Text/cap01.xhtml', title: null }, { file: 'Text/cap02.xhtml' }],
+    toc: FARO_TOC,
   },
   {
-    id: `${SIDELOAD}rtl-sample.kepub.epub`,
+    id: `${SIDELOAD}rtl #1 sample.kepub.epub`,
     title: 'كتاب تجريبي',
     author: 'مؤلف مجهول',
     language: 'ar',
-    chapters: [{ file: 'Text/fasl1.xhtml', title: 'الفصل الأول' }],
+    chapters: [{ file: 'Text/fasl1.xhtml' }],
+    toc: [{ file: 'Text/fasl1.xhtml', title: 'الفصل الأول', depth: 1 }],
   },
   // A sideloaded copy of the store book above, given the same highlights below.
   {
@@ -82,10 +113,8 @@ const BOOKS: Book[] = [
     title: 'El Faro Apagado',
     author: 'Eva Rumbo',
     language: 'es',
-    chapters: [
-      { file: 'Text/cap01.xhtml', title: null },
-      { file: 'Text/cap02.xhtml', title: 'Medianoche' },
-    ],
+    chapters: [{ file: 'Text/cap01.xhtml', title: null }, { file: 'Text/cap02.xhtml' }],
+    toc: FARO_TOC,
   },
 ];
 
@@ -211,6 +240,15 @@ const MARKS: Mark[] = [
     progress: 0.35,
     created: '2025-04-10T12:15:00.000',
     text: '@handle style opening.',
+  },
+  {
+    book: 1,
+    chapter: 2,
+    type: 'highlight',
+    color: 0,
+    progress: 0.5,
+    created: '2025-04-11T08:00:00.000',
+    text: 'The third part has no entry of its own.',
   },
   {
     book: 2,
@@ -390,7 +428,7 @@ export function buildFixture(SQL: SqlJsStatic, { withColor }: { withColor: boole
         'application/xhtml+xml',
         book.id,
         book.title,
-        chapter.title,
+        chapter.title === undefined ? chapter.file : chapter.title,
         book.author,
         index,
         USER_ID,
@@ -399,6 +437,36 @@ export function buildFixture(SQL: SqlJsStatic, { withColor }: { withColor: boole
     });
   }
   insertContent.free();
+
+  const insertToc = db.prepare(
+    `INSERT INTO content (ContentID, ContentType, MimeType, BookID, BookTitle, Title,
+       ChapterIDBookmarked, VolumeIndex, ___UserID, Language, Depth)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+  );
+  for (const book of BOOKS) {
+    // Inserted in reverse so the parser has to order entries by VolumeIndex.
+    book.toc
+      .map((entry, index) => ({ entry, index }))
+      .reverse()
+      .forEach(({ entry, index }) => {
+        const file = chapterId(book, entry.file);
+        const anchor = entry.anchor ? `#${entry.anchor}` : '';
+        insertToc.run([
+          `${file}${anchor}-${index + 1}`,
+          '899',
+          'application/x-kobo-epub+zip',
+          book.id,
+          book.title,
+          entry.title,
+          file,
+          index,
+          USER_ID,
+          book.language,
+          entry.depth,
+        ]);
+      });
+  }
+  insertToc.free();
 
   const markColumns = [
     'BookmarkID',

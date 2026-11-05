@@ -8,7 +8,17 @@ export interface ExportFilter {
 
 const BOM = '\uFEFF';
 const CRLF = '\r\n';
-const HEADER = ['Book', 'Author', 'Chapter', 'Highlight', 'Note', 'Color', 'Created'];
+const HEADER = [
+  'Book',
+  'Author',
+  'Chapter No',
+  'Chapter',
+  'Highlight',
+  'Note',
+  'Color',
+  'Date',
+  'Time',
+];
 const FORMULA_START = /^[=+\-@\t\r]/;
 
 const pad = (value: number) => String(value).padStart(2, '0');
@@ -16,12 +26,11 @@ const pad = (value: number) => String(value).padStart(2, '0');
 const localDate = (date: Date) =>
   `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
-/** Formats an ISO UTC timestamp in local time as `YYYY-MM-DD HH:MM`, or '' when it is empty. */
-export function formatLocal(iso: string): string {
-  if (!iso) return '';
+/** Splits an ISO UTC timestamp into local `YYYY-MM-DD` and `HH:MM`, both '' when it is empty. */
+export function formatLocal(iso: string): [date: string, time: string] {
   const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-  return `${localDate(date)} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  if (!iso || Number.isNaN(date.getTime())) return ['', ''];
+  return [localDate(date), `${pad(date.getHours())}:${pad(date.getMinutes())}`];
 }
 
 export function csvFilename(date: Date = new Date()): string {
@@ -53,7 +62,16 @@ const row = (values: readonly string[]) => values.map(field).join(';') + CRLF;
 /** Builds the CSV text, BOM included, for the highlights that pass the filter. */
 export function toCsv(highlights: readonly Highlight[], filter: ExportFilter): string {
   const rows = filterHighlights(highlights, filter).map((h) =>
-    row([h.book, h.author, h.chapter, h.text, h.note, h.color ?? '', formatLocal(h.created)]),
+    row([
+      h.book,
+      h.author,
+      h.chapterNo === null ? '' : String(h.chapterNo),
+      h.chapter,
+      h.text,
+      h.note,
+      h.color ?? '',
+      ...formatLocal(h.created),
+    ]),
   );
   return BOM + row(HEADER) + rows.join('');
 }

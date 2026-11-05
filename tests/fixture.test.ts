@@ -37,6 +37,49 @@ const EDGE_CASES: [string, string][] = [
   ],
   ['an empty chapter title', "SELECT 1 FROM content WHERE ContentType = '9' AND Title = ''"],
   ['a NULL chapter title', "SELECT 1 FROM content WHERE ContentType = '9' AND Title IS NULL"],
+  [
+    'chapter file titles that are paths',
+    "SELECT 1 FROM content WHERE ContentType = '9' AND Title LIKE '%.xhtml'",
+  ],
+  [
+    'a TOC entry with an #anchor and a -N suffix matching a bookmark',
+    `SELECT 1 FROM content t JOIN Bookmark b ON t.ContentID GLOB b.ContentID || '-[0-9]*'
+     WHERE t.ContentType = '899' AND instr(b.ContentID, '#') > 0 AND b.${EXPORTED}`,
+  ],
+  [
+    'an annotated chapter file without a TOC entry in a book with a TOC',
+    `SELECT 1 FROM content f JOIN Bookmark b ON b.ContentID = f.ContentID
+     WHERE f.ContentType = '9' AND b.${EXPORTED}
+       AND EXISTS (SELECT 1 FROM content t WHERE t.ContentType = '899' AND t.BookID = f.BookID)
+       AND NOT EXISTS (SELECT 1 FROM content t
+                       WHERE t.ContentType = '899' AND t.ChapterIDBookmarked = f.ContentID)`,
+  ],
+  [
+    'a TOC that lists a later chapter file before an earlier one',
+    `SELECT 1 FROM content a JOIN content b ON a.BookID = b.BookID
+       JOIN content fa ON fa.ContentID = a.ChapterIDBookmarked
+       JOIN content fb ON fb.ContentID = b.ChapterIDBookmarked
+     WHERE a.ContentType = '899' AND b.ContentType = '899'
+       AND a.VolumeIndex < b.VolumeIndex AND fa.VolumeIndex > fb.VolumeIndex`,
+  ],
+  [
+    'a TOC entry whose file name contains #',
+    `SELECT 1 FROM content WHERE ContentType = '899' AND instr(ChapterIDBookmarked, '#') > 0`,
+  ],
+  [
+    'an annotated book without a TOC',
+    `SELECT 1 FROM Bookmark b WHERE ${EXPORTED} AND NOT EXISTS
+       (SELECT 1 FROM content t WHERE t.ContentType = '899' AND t.BookID = b.VolumeID)`,
+  ],
+  [
+    'a TOC entry whose file is not a chapter',
+    `SELECT 1 FROM content t WHERE t.ContentType = '899' AND NOT EXISTS
+       (SELECT 1 FROM content f WHERE f.ContentType = '9' AND f.ContentID = t.ChapterIDBookmarked)`,
+  ],
+  [
+    'a nested TOC entry with a soft hyphen in its title',
+    "SELECT 1 FROM content WHERE ContentType = '899' AND Depth > 1 AND instr(Title, char(173)) > 0",
+  ],
   ['trailing \\t\\n', `SELECT 1 FROM Bookmark WHERE Text LIKE '%' || char(9, 10)`],
   [
     'multiline text',

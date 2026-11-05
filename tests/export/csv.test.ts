@@ -7,7 +7,8 @@ import { csvFilename, filterHighlights, formatLocal, toCsv } from '../../src/exp
 import { parseKobo } from '../../src/kobo/parse';
 import { COLORS, type Highlight } from '../../src/kobo/types';
 
-const HEADER = '"Book";"Author";"Chapter";"Highlight";"Note";"Color";"Created"\r\n';
+const HEADER =
+  '"Book";"Author";"Chapter No";"Chapter";"Highlight";"Note";"Color";"Date";"Time"\r\n';
 const ALL = [...COLORS];
 const NO_FILTER = { notesOnly: false };
 
@@ -18,6 +19,7 @@ const make = (overrides: Partial<Highlight> = {}): Highlight => ({
   book: 'A Book',
   author: 'An Author',
   chapter: 'One',
+  chapterNo: 3,
   chapterIndex: 0,
   progress: 0,
   type: 'highlight',
@@ -50,7 +52,7 @@ describe('toCsv', () => {
   it('quotes every field, joins with ; and ends rows with CRLF', () => {
     const csv = toCsv([make({ note: 'A note.', color: 'blue' })], NO_FILTER);
     expect(body(csv)).toBe(
-      '"A Book";"An Author";"One";"Some text.";"A note.";"blue";"2026-01-15 10:00"\r\n',
+      '"A Book";"An Author";"3";"One";"Some text.";"A note.";"blue";"2026-01-15";"10:00"\r\n',
     );
   });
 
@@ -72,9 +74,14 @@ describe('toCsv', () => {
     expect(body(toCsv([make({ text: 'a = b' })], NO_FILTER))).toContain('"a = b"');
   });
 
-  it('writes an empty Color for unknown colours and an empty Created for missing dates', () => {
+  it('writes an empty Color for unknown colours and empty Date and Time for missing dates', () => {
     const csv = toCsv([make({ color: null, created: '' })], NO_FILTER);
-    expect(body(csv)).toMatch(/;"";""\r\n$/);
+    expect(body(csv)).toMatch(/;"";"";""\r\n$/);
+  });
+
+  it('writes empty Chapter No and Chapter for unresolved chapters', () => {
+    const csv = toCsv([make({ chapter: '', chapterNo: null })], NO_FILTER);
+    expect(body(csv).startsWith('"A Book";"An Author";"";"";"Some text."')).toBe(true);
   });
 
   it('keeps NBSP and right-to-left text unchanged', () => {
@@ -136,13 +143,13 @@ describe('filterHighlights', () => {
 
 describe('formatLocal', () => {
   it('converts UTC to local time, across DST and midnight', () => {
-    expect(formatLocal('2026-07-01T10:05:00.000Z')).toBe('2026-07-01 12:05');
-    expect(formatLocal('2026-01-15T23:30:59.000Z')).toBe('2026-01-16 00:30');
+    expect(formatLocal('2026-07-01T10:05:00.000Z')).toEqual(['2026-07-01', '12:05']);
+    expect(formatLocal('2026-01-15T23:30:59.000Z')).toEqual(['2026-01-16', '00:30']);
   });
 
-  it('returns an empty string for empty or invalid input', () => {
-    expect(formatLocal('')).toBe('');
-    expect(formatLocal('not a date')).toBe('');
+  it('returns empty strings for empty or invalid input', () => {
+    expect(formatLocal('')).toEqual(['', '']);
+    expect(formatLocal('not a date')).toEqual(['', '']);
   });
 });
 
@@ -166,5 +173,6 @@ describe('fixture export', () => {
     expect(csv.startsWith(`\uFEFF${HEADER}`)).toBe(true);
     expect(body(csv).split('\r\n').slice(0, -1)).toHaveLength(highlights.length);
     expect(csv).toContain(`"'=SUM(A1:A3) is not a formula here."`);
+    expect(csv).not.toMatch(/\.x?html/);
   });
 });
