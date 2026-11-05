@@ -1,6 +1,6 @@
 /// <reference types="node" />
 import { readFileSync } from 'node:fs';
-import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/preact';
 import initSqlJs from 'sql.js';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { csvFilename, filterHighlights, toCsv } from '../../src/export/csv';
@@ -59,6 +59,21 @@ describe('App', () => {
     screen.getByRole('heading', { level: 1, name: 'Kobo Annotations' });
     screen.getByText(/never leaves this computer/);
     screen.getByText('Where is my file?');
+  });
+
+  it('stops the browser from opening files dropped outside the zone, until unmounted', () => {
+    const stray = (type: string) => {
+      const event = new Event(type, { cancelable: true });
+      window.dispatchEvent(event);
+      return event.defaultPrevented;
+    };
+    const { unmount } = render(<App load={resolving(library)} />);
+    expect(stray('dragover')).toBe(true);
+    expect(stray('drop')).toBe(true);
+    // Preact defers effect cleanups to the next flush; act() forces it.
+    act(() => unmount());
+    expect(stray('dragover')).toBe(false);
+    expect(stray('drop')).toBe(false);
   });
 
   it('shows each loading phase and disables the input meanwhile', async () => {
