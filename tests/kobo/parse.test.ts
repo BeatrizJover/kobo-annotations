@@ -133,6 +133,43 @@ describe('parseKobo books', () => {
   });
 });
 
+describe('parseKobo unusual values', () => {
+  const byText = (rows: Highlight[], start: string) => rows.find((h) => h.text.startsWith(start));
+
+  it('normalises dates that carry a zone and blanks missing or invalid ones', () => {
+    const bytes = withSql(
+      readFixture('KoboReader.sqlite'),
+      `UPDATE Bookmark SET DateCreated = '2025-03-01T09:20:00Z' WHERE Text LIKE 'She counted%';
+       UPDATE Bookmark SET DateCreated = '2025-03-01T09:26:53+02:00' WHERE Text LIKE 'The orchard%';
+       UPDATE Bookmark SET DateCreated = 'garbage' WHERE Text LIKE 'The wind%';
+       UPDATE Bookmark SET DateCreated = NULL WHERE Text LIKE 'First line%';`,
+    );
+    const { highlights } = parseKobo(SQL, bytes);
+    expect(byText(highlights, 'She counted')?.created).toBe('2025-03-01T09:20:00.000Z');
+    expect(byText(highlights, 'The orchard')?.created).toBe('2025-03-01T07:26:53.000Z');
+    expect(byText(highlights, 'The wind')?.created).toBe('');
+    expect(byText(highlights, 'First line')?.created).toBe('');
+  });
+
+  it('returns null for an unknown colour value', () => {
+    const bytes = withSql(
+      readFixture('KoboReader.sqlite'),
+      "UPDATE Bookmark SET Color = 7 WHERE Text LIKE 'The orchard%'",
+    );
+    expect(byText(parseKobo(SQL, bytes).highlights, 'The orchard')?.color).toBeNull();
+  });
+
+  it('keeps a highlight whose chapter cannot be resolved', () => {
+    const bytes = withSql(
+      readFixture('KoboReader.sqlite'),
+      "UPDATE Bookmark SET ContentID = 'missing#anchor' WHERE Text LIKE 'The wind%'",
+    );
+    const wind = byText(parseKobo(SQL, bytes).highlights, 'The wind');
+    expect(wind?.chapterIndex).toBe(-1);
+    expect(wind?.chapter).toBe('');
+  });
+});
+
 describe('parseKobo without a Color column', () => {
   it('reports no colour support and the same rows', () => {
     expect(noColor.hasColor).toBe(false);
