@@ -3,6 +3,7 @@ import type { KoboLibrary } from '../kobo/types';
 import { StoreError, type HighlightStore, type StoreErrorCode } from '../store/db';
 import { persistStorage } from '../store/persist';
 import { LoadError, type LoadErrorCode, type LoadLibrary, type Phase } from '../worker/protocol';
+import { BookView } from './BookView';
 import { DropZone } from './DropZone';
 import { ExportPanel } from './ExportPanel';
 import { FileHelp } from './FileHelp';
@@ -73,6 +74,9 @@ export function App({ load, store }: AppProps) {
   const [storeError, setStoreError] = useState<StoreErrorCode | null>(null);
   // Whether the browser holds saved highlights, which may differ from what is shown.
   const [hasSaved, setHasSaved] = useState(false);
+  const [openBook, setOpenBook] = useState<string | null>(null);
+  // Only Back returns focus to the book tile; a new file keeps it where the user is.
+  const [returning, setReturning] = useState(false);
   const keys = useRef(0);
   // A file read before the saved data arrives wins over it.
   const opened = useRef(false);
@@ -107,6 +111,8 @@ export function App({ load, store }: AppProps) {
       return;
     }
     opened.current = true;
+    setOpenBook(null);
+    setReturning(false);
     try {
       const library = await store.save(parsed);
       setShown({ library, saved: true, key: ++keys.current });
@@ -124,6 +130,8 @@ export function App({ load, store }: AppProps) {
     try {
       await store.clear();
       setShown(null);
+      setOpenBook(null);
+      setReturning(false);
       setHasSaved(false);
       setStoreError(null);
       // The clear controls are gone, so focus moves to the next useful action.
@@ -164,7 +172,22 @@ export function App({ load, store }: AppProps) {
       {shown && (
         <>
           <ExportPanel key={shown.key} library={shown.library} />
-          <Library highlights={shown.library.highlights} />
+          <Library
+            highlights={shown.library.highlights}
+            hidden={openBook !== null}
+            restoreFocus={returning}
+            onOpen={setOpenBook}
+          />
+          {openBook !== null && (
+            <BookView
+              library={shown.library}
+              bookId={openBook}
+              onBack={() => {
+                setOpenBook(null);
+                setReturning(true);
+              }}
+            />
+          )}
         </>
       )}
       {(hasSaved || storeError === 'failed') && (

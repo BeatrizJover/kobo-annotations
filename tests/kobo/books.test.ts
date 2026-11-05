@@ -3,7 +3,7 @@
 import { readFileSync } from 'node:fs';
 import initSqlJs from 'sql.js';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { listBooks, sortBooks, type BookSummary } from '../../src/kobo/books';
+import { listBooks, sortBooks, sortByCreated, type BookSummary } from '../../src/kobo/books';
 import { parseKobo } from '../../src/kobo/parse';
 import type { Highlight } from '../../src/kobo/types';
 
@@ -66,5 +66,34 @@ describe('sortBooks', () => {
     const twins = [book('y', 'Same', 'Same'), book('x', 'Same', 'Same')];
     expect(sortBooks(twins, 'title-asc').map((b) => b.id)).toEqual(['x', 'y']);
     expect(twins.map((b) => b.id)).toEqual(['y', 'x']);
+  });
+});
+
+describe('sortByCreated', () => {
+  const dated = (id: string, created: string): Highlight => ({
+    ...(highlights[0] as Highlight),
+    id,
+    created,
+  });
+  const rows = () => [
+    dated('b', '2024-03-02T10:00:00.000Z'),
+    dated('none', ''),
+    dated('a', '2024-01-05T08:30:00.000Z'),
+    dated('c', '2024-03-02T10:00:00.000Z'),
+  ];
+  const ids = (list: readonly Highlight[]) => list.map((h) => h.id);
+
+  it('sorts oldest first, keeping ties in their order and undated rows last', () => {
+    expect(ids(sortByCreated(rows(), 'oldest'))).toEqual(['a', 'b', 'c', 'none']);
+  });
+
+  it('sorts newest first, still with undated rows last', () => {
+    expect(ids(sortByCreated(rows(), 'newest'))).toEqual(['b', 'c', 'a', 'none']);
+  });
+
+  it('leaves the input untouched', () => {
+    const input = rows();
+    sortByCreated(input, 'newest');
+    expect(ids(input)).toEqual(['b', 'none', 'a', 'c']);
   });
 });

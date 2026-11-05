@@ -39,6 +39,7 @@
   --space-drop-zone: 3rem;
   --content-width: 48rem;
   --book-tile-min: 13rem;
+  --card-side-width: 2.5rem;
 }
 
 body {

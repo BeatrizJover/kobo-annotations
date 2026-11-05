@@ -341,6 +341,48 @@ describe('App saved library', () => {
     expect((await store.load()).highlights).toEqual([]);
   });
 
+  it('opens a book from its tile and returns to the same tile', async () => {
+    start(resolving(library), await savedStore());
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    fireEvent.click(screen.getByRole('radio', { name: 'Title (Z–A)' }));
+    const tile = screen.getByRole('button', { name: /^The Glass Orchard/ });
+    fireEvent.click(tile);
+
+    expect(screen.queryByRole('region', { name: 'Your books' })).toBeNull();
+    const view = screen.getByRole('region', { name: 'The Glass Orchard' });
+    expect(document.activeElement).toBe(within(view).getByRole('heading', { level: 2 }));
+    screen.getByRole('region', { name: 'Export' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'All books' }));
+    expect(screen.queryByRole('region', { name: 'The Glass Orchard' })).toBeNull();
+    screen.getByRole('region', { name: 'Your books' });
+    expect(document.activeElement).toBe(tile);
+    expect(screen.getByRole('radio', { name: 'Title (Z–A)' })).toHaveProperty('checked', true);
+  });
+
+  it('closes the open book when a new file is loaded or the data is cleared', async () => {
+    start(resolving(library), await savedStore());
+    fireEvent.click(await screen.findByRole('button', { name: /^The Glass Orchard/ }));
+    const input = screen.getByLabelText('Choose file');
+    input.focus();
+    choose();
+    await screen.findByRole('region', { name: 'Your books' });
+    expect(screen.queryByRole('region', { name: 'The Glass Orchard' })).toBeNull();
+    await screen.findByText(/saved in this browser/);
+    expect(document.activeElement).not.toBe(
+      screen.getByRole('button', { name: /^The Glass Orchard/ }),
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /^The Glass Orchard/ }));
+    const clearButton = screen.getByRole('button', { name: 'Clear saved data' });
+    await waitFor(() => expect(clearButton).toHaveProperty('disabled', false));
+    fireEvent.click(clearButton);
+    fireEvent.click(screen.getByRole('button', { name: 'Delete saved data' }));
+    await waitFor(() =>
+      expect(screen.queryByRole('region', { name: 'The Glass Orchard' })).toBeNull(),
+    );
+  });
+
   it('keeps the saved data when the confirmation is cancelled', async () => {
     const store = await savedStore();
     start(resolving(library), store);

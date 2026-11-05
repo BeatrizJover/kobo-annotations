@@ -41,3 +41,19 @@ export function sortBooks(books: readonly BookSummary[], sort: BookSort): BookSu
         (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)),
   );
 }
+
+export const HIGHLIGHT_ORDERS = ['oldest', 'newest'] as const;
+
+export type HighlightOrder = (typeof HIGHLIGHT_ORDERS)[number];
+
+/** Returns a copy sorted by DateCreated; undated rows go last and ties keep their order. */
+export function sortByCreated<T extends Highlight>(
+  highlights: readonly T[],
+  order: HighlightOrder,
+): T[] {
+  const direction = order === 'newest' ? -1 : 1;
+  return [...highlights].sort((a, b) => {
+    if (!a.created || !b.created) return Number(!a.created) - Number(!b.created);
+    return direction * (a.created < b.created ? -1 : a.created > b.created ? 1 : 0);
+  });
+}
