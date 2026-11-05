@@ -1,11 +1,13 @@
+import type { Ref } from 'preact';
 import { useRef, useState } from 'preact/hooks';
 
 interface DropZoneProps {
   busy: boolean;
   onFile: (file: File) => void;
+  inputRef?: Ref<HTMLInputElement>;
 }
 
-export function DropZone({ busy, onFile }: DropZoneProps) {
+export function DropZone({ busy, onFile, inputRef }: DropZoneProps) {
   const [over, setOver] = useState(false);
   // Counts nested enter/leave pairs, since Safari's dragleave carries no relatedTarget.
   const depth = useRef(0);
@@ -42,6 +44,7 @@ export function DropZone({ busy, onFile }: DropZoneProps) {
       <label class={busy ? 'button is-disabled' : 'button'}>
         Choose file
         <input
+          ref={inputRef}
           type="file"
           accept=".sqlite"
           class="visually-hidden"

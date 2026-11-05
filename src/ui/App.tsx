@@ -76,15 +76,16 @@ export function App({ load, store }: AppProps) {
   const keys = useRef(0);
   // A file read before the saved data arrives wins over it.
   const opened = useRef(false);
+  const fileInput = useRef<HTMLInputElement>(null);
   useBlockStrayDrops();
 
   useEffect(() => {
     let active = true;
     store.load().then(
       (library) => {
-        if (!active || opened.current || library.highlights.length === 0) return;
-        setShown({ library, saved: true, key: ++keys.current });
+        if (!active || library.highlights.length === 0) return;
         setHasSaved(true);
+        if (!opened.current) setShown({ library, saved: true, key: ++keys.current });
       },
       (error: unknown) => {
         if (!active || opened.current) return;
@@ -125,6 +126,8 @@ export function App({ load, store }: AppProps) {
       setShown(null);
       setHasSaved(false);
       setStoreError(null);
+      // The clear controls are gone, so focus moves to the next useful action.
+      fileInput.current?.focus();
     } catch (error) {
       setStoreError(storeErrorCode(error));
     }
@@ -137,7 +140,7 @@ export function App({ load, store }: AppProps) {
       <h1>Kobo Annotations</h1>
       <p>Export your Kobo highlights to CSV. Your data never leaves this computer.</p>
 
-      <DropZone busy={busy} onFile={open} />
+      <DropZone busy={busy} onFile={open} inputRef={fileInput} />
 
       <div class="status" role="status">
         {task.status === 'loading' && (

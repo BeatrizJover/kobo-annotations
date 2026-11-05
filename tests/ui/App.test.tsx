@@ -338,6 +338,7 @@ describe('App saved library', () => {
 
     await waitFor(() => expect(screen.queryByRole('region', { name: 'Export' })).toBeNull());
     expect(screen.queryByRole('heading', { name: 'Your books' })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByLabelText('Choose file'));
     expect((await store.load()).highlights).toEqual([]);
   });
 
@@ -426,6 +427,25 @@ describe('App saved library', () => {
       expect(screen.queryByRole('button', { name: 'Clear saved data' })).toBeNull(),
     );
     expect((await saved.load()).highlights).toEqual([]);
+  });
+
+  it('offers to clear data restored after a file whose save then fails', async () => {
+    const saved = await savedStore();
+    let release: () => void = () => undefined;
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const store: HighlightStore = {
+      ...saved,
+      load: () => gate.then(() => saved.load()),
+      save: () => gate.then(() => Promise.reject(new StoreError('full'))),
+    };
+    start(resolving(noColor), store);
+    choose();
+    // Lets the file finish reading while the saved data is still on its way.
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    release();
+    await screen.findByRole('alert');
+    await screen.findByRole('button', { name: 'Clear saved data' });
+    screen.getByText(/may still hold highlights saved from earlier files/);
   });
 
   it('keeps the library and says so when clearing fails', async () => {
