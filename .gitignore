@@ -3,3 +3,7 @@ local_data/
 *.sqlite
 *.sqlite-*
 !tests/fixtures/*.sqlite
+
+# Build
+node_modules/
+dist/
