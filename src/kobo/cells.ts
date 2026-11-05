@@ -2,7 +2,7 @@ import type { SqlValue } from 'sql.js';
 
 export type Cell = SqlValue | undefined;
 
-const SOFT_HYPHEN = /­/g;
+const SOFT_HYPHEN = /\u00AD/g;
 
 export const text = (value: Cell): string => (typeof value === 'string' ? value : '');
 

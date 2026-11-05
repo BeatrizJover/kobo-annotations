@@ -72,8 +72,16 @@ const BOOKS: Book[] = [
     title: 'Shared Title',
     author: 'Bo Lantern, Cy Marsh',
     language: 'en',
-    chapters: [{ file: 'Text/part1.xhtml' }],
-    toc: [{ file: 'Text/part1.xhtml', title: 'Part One', depth: 1 }],
+    chapters: [
+      { file: 'Text/part1.xhtml' },
+      { file: 'Text/part2.xhtml' },
+      { file: 'Text/part3.xhtml' },
+    ],
+    // The TOC lists a later file first; part3 inherits from part2, the last entry in file order.
+    toc: [
+      { file: 'Text/part2.xhtml', title: 'Part Two', depth: 1 },
+      { file: 'Text/part1.xhtml', title: 'Part One', depth: 1 },
+    ],
   },
   {
     id: `${SIDELOAD}Dee Harrow - Shared Title.kepub.epub`,
@@ -232,6 +240,15 @@ const MARKS: Mark[] = [
     progress: 0.35,
     created: '2025-04-10T12:15:00.000',
     text: '@handle style opening.',
+  },
+  {
+    book: 1,
+    chapter: 2,
+    type: 'highlight',
+    color: 0,
+    progress: 0.5,
+    created: '2025-04-11T08:00:00.000',
+    text: 'The third part has no entry of its own.',
   },
   {
     book: 2,

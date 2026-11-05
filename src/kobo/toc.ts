@@ -89,7 +89,8 @@ export function loadToc(db: Database): ChapterResolver {
     byBook.set(bookId, entries);
   }
   for (const entries of byBook.values()) {
-    entries.sort((a, b) => a.fileIndex - b.fileIndex || a.no - b.no);
+    // Stable, so entries of the same file keep their TOC order.
+    entries.sort((a, b) => a.fileIndex - b.fileIndex);
   }
 
   // A chapter spanning several files inherits the last entry of an earlier file.

@@ -55,6 +55,14 @@ const EDGE_CASES: [string, string][] = [
                        WHERE t.ContentType = '899' AND t.ChapterIDBookmarked = f.ContentID)`,
   ],
   [
+    'a TOC that lists a later chapter file before an earlier one',
+    `SELECT 1 FROM content a JOIN content b ON a.BookID = b.BookID
+       JOIN content fa ON fa.ContentID = a.ChapterIDBookmarked
+       JOIN content fb ON fb.ContentID = b.ChapterIDBookmarked
+     WHERE a.ContentType = '899' AND b.ContentType = '899'
+       AND a.VolumeIndex < b.VolumeIndex AND fa.VolumeIndex > fb.VolumeIndex`,
+  ],
+  [
     'an annotated book without a TOC',
     `SELECT 1 FROM Bookmark b WHERE ${EXPORTED} AND NOT EXISTS
        (SELECT 1 FROM content t WHERE t.ContentType = '899' AND t.BookID = b.VolumeID)`,

@@ -51,7 +51,7 @@ beforeAll(async () => {
 describe('parseKobo rows', () => {
   it('keeps visible highlights and notes with text only', () => {
     const texts = library.highlights.map((h) => h.text);
-    expect(texts).toHaveLength(15);
+    expect(texts).toHaveLength(16);
     expect(texts).not.toContain('This highlight was deleted on the device.');
     expect(texts.every((t) => t.trim() !== '')).toBe(true);
     expect(new Set(library.highlights.map((h) => h.type))).toEqual(new Set(['highlight', 'note']));
@@ -134,6 +134,11 @@ describe('parseKobo chapters', () => {
   it('inherits the last TOC entry of an earlier file', () => {
     expect(chapterOf('The wind')).toEqual([3, 'Second Section']);
     expect(chapterOf('Light bends')).toEqual([3, 'Second Section']);
+  });
+
+  it('inherits by file order when the TOC lists files out of order', () => {
+    expect(chapterOf('=SUM')).toEqual([2, 'Part One']);
+    expect(chapterOf('The third part')).toEqual([1, 'Part Two']);
   });
 
   it('leaves books without a TOC unresolved', () => {
