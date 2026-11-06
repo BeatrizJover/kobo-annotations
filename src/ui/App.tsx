@@ -136,6 +136,7 @@ export function App({ load, store }: AppProps) {
       return;
     }
     opened.current = true;
+    setCoverTask((current) => (current.busy ? current : { busy: false, message: null }));
     setOpenBook(null);
     setReturning(false);
     try {
@@ -191,6 +192,8 @@ export function App({ load, store }: AppProps) {
 
   const addCovers = async (pending: Promise<File[]>) => {
     const highlights = shown?.library.highlights ?? [];
+    // Covers of highlights the browser could not save would outlive them.
+    const keep = shown?.saved ?? false;
     setCoverTask({ busy: true, message: COVER_MESSAGES.busy });
     let found: Map<string, Blob>;
     try {
@@ -207,6 +210,7 @@ export function App({ load, store }: AppProps) {
     setCovers((current) => new Map([...current, ...found]));
     let message = COVER_MESSAGES.added(found.size);
     try {
+      if (!keep) throw new StoreError('unavailable');
       await store.saveCovers(found);
     } catch {
       message += COVER_MESSAGES.unsaved;

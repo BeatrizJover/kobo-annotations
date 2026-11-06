@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import initSqlJs from 'sql.js';
+import type { CoverSize } from '../src/covers/match';
 
 type SqlJsStatic = initSqlJs.SqlJsStatic;
 type Type = 'highlight' | 'note' | 'dogear' | 'markup';
@@ -547,8 +548,6 @@ const COVER_JPEG = Uint8Array.from(
     'base64',
   ),
 );
-
-type CoverSize = 'N3_LIBRARY_FULL' | 'N3_LIBRARY_GRID' | 'N3_FULL';
 
 const imageIdOf = (bookId: string) => BOOKS.find((book) => book.id === bookId)?.imageId ?? '';
 

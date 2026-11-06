@@ -23,6 +23,7 @@ export function Library({ library, hidden, restoreFocus, onOpen, covers, childre
   const books = useMemo(() => listBooks(library.highlights), [library]);
   const history = useMemo(() => bookHistory(library), [library]);
   const sorted = useMemo(() => sortBooks(books, sort), [books, sort]);
+  const anyCover = useMemo(() => books.some((b) => covers.has(b.id)), [books, covers]);
   const opened = useRef<HTMLButtonElement | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
 
@@ -61,7 +62,7 @@ export function Library({ library, hidden, restoreFocus, onOpen, covers, childre
                   <img class="book-cover" src={cover} alt="" />
                 ) : (
                   // Keeps the grid even once some books have covers.
-                  covers.size > 0 && (
+                  anyCover && (
                     <span class="book-cover is-placeholder" aria-hidden="true" dir="auto">
                       {book.title || 'Untitled'}
                     </span>

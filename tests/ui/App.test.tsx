@@ -922,6 +922,43 @@ describe('App covers', () => {
     });
   });
 
+  it('does not keep covers of highlights the browser could not save', async () => {
+    const store: HighlightStore = {
+      ...createIdbStore(new IDBFactory()),
+      save: () => Promise.reject(new StoreError('full')),
+    };
+    start(resolving(library), store);
+    choose();
+    await screen.findByRole('region', { name: 'Export' });
+    chooseFolder(coverFiles());
+    await screen.findByText(/could not save them/);
+    expect(covers()).toHaveLength(4);
+    expect((await store.loadCovers()).size).toBe(0);
+  });
+
+  it('shows no placeholders when only books not shown have covers', async () => {
+    const glass = library.highlights.find((h) => h.book === 'The Glass Orchard')?.bookId ?? '';
+    const store = createIdbStore(new IDBFactory());
+    await store.save({
+      ...library,
+      highlights: library.highlights.filter((h) => h.bookId !== glass),
+    });
+    await store.saveCovers(new Map([[glass, new Blob([new Uint8Array([0xff, 0xd8, 0xff])])]]));
+    start(resolving(library), store);
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(covers()).toHaveLength(0);
+    expect(placeholders()).toHaveLength(0);
+  });
+
+  it('clears the covers message when another file is loaded', async () => {
+    await loaded(library);
+    chooseFolder(coverFiles());
+    await screen.findByText('Added covers for 4 books.');
+    choose();
+    await waitFor(() => expect(screen.queryByText('Added covers for 4 books.')).toBeNull());
+  });
+
   it('says when a dropped folder cannot be read', async () => {
     await loaded(library);
     const entry = {

@@ -151,7 +151,12 @@ export function createIdbStore(factory?: IDBFactory): HighlightStore {
   }
 
   const readAll = async (tx: IDBTransaction) => ({
-    highlights: await request<SavedHighlight[]>(tx.objectStore(HIGHLIGHTS).getAll()),
+    // Highlights saved before covers existed have no imageId.
+    highlights: (
+      await request<(Omit<SavedHighlight, 'imageId'> & { imageId?: string })[]>(
+        tx.objectStore(HIGHLIGHTS).getAll(),
+      )
+    ).map((h): SavedHighlight => ({ ...h, imageId: h.imageId ?? '' })),
     imports: await request<ImportRecord[]>(tx.objectStore(IMPORTS).getAll()),
   });
 
@@ -209,7 +214,10 @@ export function createIdbStore(factory?: IDBFactory): HighlightStore {
         ]);
         const { highlights, imports } = await readAll(tx);
         if (highlights.length === 0) {
-          await request(tx.objectStore(IMPORTS).clear());
+          await Promise.all([
+            request(tx.objectStore(IMPORTS).clear()),
+            request(tx.objectStore(COVERS).clear()),
+          ]);
           return { highlights, hasColor: false, imports: [] };
         }
         return {

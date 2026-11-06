@@ -239,6 +239,22 @@ describe('createIdbStore covers', () => {
     expect([...(await store.loadCovers()).keys()]).toEqual([kept]);
   });
 
+  it('drops every cover when the last book is forgotten', async () => {
+    const [only = ''] = bookIds();
+    await store.save({
+      ...library,
+      highlights: library.highlights.filter((h) => h.bookId === only),
+    });
+    await store.saveCovers(
+      new Map([
+        [only, jpeg(1)],
+        ['orphan', jpeg(2)],
+      ]),
+    );
+    await store.forgetBook(only);
+    expect((await store.loadCovers()).size).toBe(0);
+  });
+
   it('reports a cover that cannot be read as a failure and saves none', async () => {
     const [first = '', second = ''] = bookIds();
     const broken = Object.assign(jpeg(1), { arrayBuffer: () => Promise.reject(new Error('gone')) });
@@ -257,9 +273,13 @@ describe('createIdbStore covers', () => {
     v1.onupgradeneeded = () => {
       v1.result.createObjectStore('highlights', { keyPath: 'id' }).createIndex('bookId', 'bookId');
       v1.result.createObjectStore('imports', { keyPath: 'id' });
-      v1.transaction
-        ?.objectStore('highlights')
-        .put({ ...library.highlights[0], firstSeen: 1, lastSeen: 1, onDevice: true });
+      v1.transaction?.objectStore('highlights').put({
+        ...library.highlights[0],
+        imageId: undefined,
+        firstSeen: 1,
+        lastSeen: 1,
+        onDevice: true,
+      });
     };
     await new Promise((resolve, reject) => {
       v1.onsuccess = () => {
@@ -268,7 +288,9 @@ describe('createIdbStore covers', () => {
       };
       v1.onerror = () => reject(v1.error ?? new Error('open failed'));
     });
-    expect(ids((await store.load()).highlights)).toEqual([library.highlights[0]?.id]);
+    const [loaded] = (await store.load()).highlights;
+    expect(loaded?.id).toBe(library.highlights[0]?.id);
+    expect(loaded?.imageId).toBe('');
     expect((await store.loadCovers()).size).toBe(0);
   });
 });

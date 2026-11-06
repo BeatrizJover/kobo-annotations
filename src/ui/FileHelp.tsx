@@ -41,8 +41,8 @@ export function FileHelp() {
       <ol>
         <li>
           Windows: open <strong>This PC › KOBOeReader</strong>, select <strong>.kobo-images</strong>{' '}
-          and click <strong>Upload</strong> or <strong>Select Folder</strong>. Hidden folders show
-          up as for <strong>.kobo</strong> above.
+          and click <strong>Upload</strong> or <strong>Select Folder</strong>. If you can't see it,
+          show hidden items as described for <strong>.kobo</strong> above.
         </li>
         <li>
           Linux: pick <strong>KOBOeReader</strong>, press <kbd>Ctrl</kbd>+<kbd>H</kbd>, select{' '}

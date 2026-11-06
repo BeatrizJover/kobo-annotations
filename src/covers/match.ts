@@ -21,7 +21,6 @@ export function parseCoverName(name: string): { imageId: string; size: CoverSize
 export function booksByImageId(highlights: readonly Highlight[]): Map<string, Set<string>> {
   const books = new Map<string, Set<string>>();
   for (const h of highlights) {
-    // Highlights saved before covers existed have no imageId at all.
     if (!h.imageId) continue;
     const ids = books.get(h.imageId) ?? new Set<string>();
     ids.add(h.bookId);
