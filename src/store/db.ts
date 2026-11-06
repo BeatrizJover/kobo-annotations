@@ -4,9 +4,16 @@ import { mergeImport } from './merge';
 import type { ImportRecord, SavedHighlight, SavedLibrary } from './types';
 
 const DB_NAME = 'kobo-annotations';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const HIGHLIGHTS = 'highlights';
 const IMPORTS = 'imports';
+const COVERS = 'covers';
+
+interface CoverRecord {
+  bookId: string;
+  bytes: ArrayBuffer;
+  type: string;
+}
 
 export type StoreErrorCode = 'unavailable' | 'full' | 'failed';
 
@@ -29,6 +36,10 @@ export interface HighlightStore {
   clear(): Promise<void>;
   /** Deletes one book's highlights and returns what is left; the last book takes the uploads too. */
   forgetBook(bookId: string): Promise<SavedLibrary>;
+  /** Cover images per book id. */
+  loadCovers(): Promise<Map<string, Blob>>;
+  /** Adds or replaces the given books' covers and keeps the others. */
+  saveCovers(covers: ReadonlyMap<string, Blob>): Promise<void>;
 }
 
 const request = <T>(req: IDBRequest<T>) =>
@@ -68,6 +79,9 @@ function open(factory: IDBFactory, onClose: () => void): Promise<IDBDatabase> {
     }
     if (!db.objectStoreNames.contains(IMPORTS)) {
       db.createObjectStore(IMPORTS, { keyPath: 'id' });
+    }
+    if (!db.objectStoreNames.contains(COVERS)) {
+      db.createObjectStore(COVERS, { keyPath: 'bookId' });
     }
   };
   const blocked = new Promise<never>((_, reject) => {
@@ -116,7 +130,7 @@ export function createIdbStore(factory?: IDBFactory): HighlightStore {
     const db = await connect();
     let tx: IDBTransaction;
     try {
-      tx = db.transaction([HIGHLIGHTS, IMPORTS], mode);
+      tx = db.transaction([HIGHLIGHTS, IMPORTS, COVERS], mode);
     } catch (cause) {
       throw toStoreError(cause);
     }
@@ -137,7 +151,12 @@ export function createIdbStore(factory?: IDBFactory): HighlightStore {
   }
 
   const readAll = async (tx: IDBTransaction) => ({
-    highlights: await request<SavedHighlight[]>(tx.objectStore(HIGHLIGHTS).getAll()),
+    // Highlights saved before covers existed have no imageId.
+    highlights: (
+      await request<(Omit<SavedHighlight, 'imageId'> & { imageId?: string })[]>(
+        tx.objectStore(HIGHLIGHTS).getAll(),
+      )
+    ).map((h): SavedHighlight => ({ ...h, imageId: h.imageId ?? '' })),
     imports: await request<ImportRecord[]>(tx.objectStore(IMPORTS).getAll()),
   });
 
@@ -181,6 +200,7 @@ export function createIdbStore(factory?: IDBFactory): HighlightStore {
         await Promise.all([
           request(tx.objectStore(HIGHLIGHTS).clear()),
           request(tx.objectStore(IMPORTS).clear()),
+          request(tx.objectStore(COVERS).clear()),
         ]);
       }),
 
@@ -188,10 +208,16 @@ export function createIdbStore(factory?: IDBFactory): HighlightStore {
       run('readwrite', async (tx) => {
         const store = tx.objectStore(HIGHLIGHTS);
         const keys = await request(store.index('bookId').getAllKeys(bookId));
-        await Promise.all(keys.map((key) => request(store.delete(key))));
+        await Promise.all([
+          ...keys.map((key) => request(store.delete(key))),
+          request(tx.objectStore(COVERS).delete(bookId)),
+        ]);
         const { highlights, imports } = await readAll(tx);
         if (highlights.length === 0) {
-          await request(tx.objectStore(IMPORTS).clear());
+          await Promise.all([
+            request(tx.objectStore(IMPORTS).clear()),
+            request(tx.objectStore(COVERS).clear()),
+          ]);
           return { highlights, hasColor: false, imports: [] };
         }
         return {
@@ -200,5 +226,31 @@ export function createIdbStore(factory?: IDBFactory): HighlightStore {
           imports,
         };
       }),
+
+    loadCovers: () =>
+      run('readonly', async (tx) => {
+        const records = await request<CoverRecord[]>(tx.objectStore(COVERS).getAll());
+        return new Map(records.map((r) => [r.bookId, new Blob([r.bytes], { type: r.type })]));
+      }),
+
+    saveCovers: async (covers) => {
+      // Reading the blobs inside the transaction would let it commit before the writes.
+      let records: CoverRecord[];
+      try {
+        records = await Promise.all(
+          [...covers].map(async ([bookId, blob]) => ({
+            bookId,
+            bytes: await blob.arrayBuffer(),
+            type: blob.type,
+          })),
+        );
+      } catch (cause) {
+        throw toStoreError(cause);
+      }
+      await run('readwrite', async (tx) => {
+        const store = tx.objectStore(COVERS);
+        await Promise.all(records.map((record) => request(store.put(record))));
+      });
+    },
   };
 }

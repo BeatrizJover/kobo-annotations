@@ -1,7 +1,7 @@
 export function FileHelp() {
   return (
     <details class="help">
-      <summary>Where is my file?</summary>
+      <summary>Where are my files?</summary>
       <p>
         Plug your Kobo into the computer with its USB cable and tap <strong>Connect</strong> on the
         e-reader. A drive called <strong>KOBOeReader</strong> appears.
@@ -32,7 +32,30 @@ export function FileHelp() {
           <code>/media/your-user-name/KOBOeReader/.kobo/KoboReader.sqlite</code>.
         </li>
       </ol>
-      <p>The file is only read, never changed. Eject the Kobo when you are done.</p>
+      <h3>Covers (optional)</h3>
+      <p>
+        Book covers are in another hidden folder, <strong>.kobo-images</strong>, at the top of the{' '}
+        <strong>KOBOeReader</strong> drive. After loading your highlights, click{' '}
+        <strong>Choose folder</strong> under <strong>Your books</strong>:
+      </p>
+      <ol>
+        <li>
+          Windows: open <strong>This PC › KOBOeReader</strong>, select <strong>.kobo-images</strong>{' '}
+          and click <strong>Upload</strong> or <strong>Select Folder</strong>. If you can't see it,
+          show hidden items as described for <strong>.kobo</strong> above.
+        </li>
+        <li>
+          Linux: pick <strong>KOBOeReader</strong>, press <kbd>Ctrl</kbd>+<kbd>H</kbd>, select{' '}
+          <strong>.kobo-images</strong> and click <strong>Select</strong> or <strong>Upload</strong>
+          . Or press <kbd>Ctrl</kbd>+<kbd>L</kbd> and type{' '}
+          <code>/media/your-user-name/KOBOeReader/.kobo-images</code>.
+        </li>
+        <li>
+          If the browser asks whether to upload the files, confirm: they are only read on this
+          computer, nothing is sent anywhere.
+        </li>
+      </ol>
+      <p>The files are only read, never changed. Eject the Kobo when you are done.</p>
       <p>
         Tip: before you sync or delete books, copy <strong>KoboReader.sqlite</strong> to your
         computer with the date in its name, for example <code>KoboReader_20261105.sqlite</code>.

@@ -12,6 +12,7 @@ const make = (bookId: string, text: string, overrides: Partial<Highlight> = {}):
   bookId,
   book: 'Same Book',
   author: 'Same Author',
+  imageId: '',
   chapter: '',
   chapterNo: null,
   chapterIndex: 0,

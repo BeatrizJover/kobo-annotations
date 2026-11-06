@@ -4,6 +4,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { IDBFactory } from 'fake-indexeddb';
 import initSqlJs from 'sql.js';
 import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
+import { buildCovers } from '../../scripts/make-fixture';
 import { csvFilename, filterHighlights, toCsv } from '../../src/export/csv';
 import { parseKobo } from '../../src/kobo/parse';
 import { COLORS, type KoboLibrary } from '../../src/kobo/types';
@@ -73,14 +74,16 @@ describe('App', () => {
     start(resolving(library));
     screen.getByRole('heading', { level: 1, name: 'Kobo Annotations' });
     screen.getByText('Hold on to every line you loved.');
-    screen.getByText('Where is my file?');
+    screen.getByText('Where are my files?');
     screen.getByText('KoboReader_20261105.sqlite');
   });
 
   it('puts the file help right below the drop zone, next to a hidden illustration', () => {
     const { container } = start(resolving(library));
     const zone = screen.getByTestId('drop-zone');
-    expect(zone.nextElementSibling).toBe(screen.getByText('Where is my file?').closest('details'));
+    expect(zone.nextElementSibling).toBe(
+      screen.getByText('Where are my files?').closest('details'),
+    );
     expect(container.querySelector('svg.illustration')?.getAttribute('aria-hidden')).toBe('true');
   });
 
@@ -470,6 +473,8 @@ describe('App saved library', () => {
       save: unavailable,
       clear: unavailable,
       forgetBook: unavailable,
+      loadCovers: unavailable,
+      saveCovers: unavailable,
     };
     start(resolving(library), store);
     expect((await screen.findByRole('alert')).textContent).toMatch(/not saving your highlights/);
@@ -776,5 +781,196 @@ describe('App history', () => {
     choose();
     await screen.findByText(/saved in this browser/);
     expect(document.activeElement).not.toBe(tile(/^The Glass Orchard/));
+  });
+});
+
+describe('App covers', () => {
+  const coverFiles = () =>
+    [...buildCovers()].map(([path, bytes]) => new File([bytes], path.split('/').at(-1) ?? path));
+
+  function chooseFolder(files: File[]) {
+    const input = screen.getByLabelText('Choose folder');
+    Object.defineProperty(input, 'files', { value: files, configurable: true });
+    fireEvent.change(input);
+  }
+
+  const libraryRegion = () => screen.getByRole('region', { name: 'Your books' });
+  const covers = () => libraryRegion().querySelectorAll('img.book-cover');
+  const placeholders = () => libraryRegion().querySelectorAll('.book-cover.is-placeholder');
+  const books = () => new Set(library.highlights.map((h) => h.bookId)).size;
+
+  it('picks folders only, and shows no covers until some are added', async () => {
+    await loaded(library);
+    const input = screen.getByLabelText<HTMLInputElement>('Choose folder');
+    expect(input.webkitdirectory).toBe(true);
+    expect(covers()).toHaveLength(0);
+    expect(placeholders()).toHaveLength(0);
+  });
+
+  it('adds covers from the chosen folder, with placeholders for the rest', async () => {
+    await loaded(library);
+    chooseFolder(coverFiles());
+    await screen.findByText('Added covers for 4 books.');
+    expect(covers()).toHaveLength(4);
+    expect(placeholders()).toHaveLength(books() - 4);
+    for (const img of covers()) expect(img.getAttribute('src')).toMatch(/^blob:/);
+
+    fireEvent.click(screen.getByRole('button', { name: /^The Glass Orchard/ }));
+    const view = screen.getByRole('region', { name: 'The Glass Orchard' });
+    expect(view.querySelector('img.book-view-cover')?.getAttribute('src')).toMatch(/^blob:/);
+  });
+
+  it('shows no cover in the book view of a book without one', async () => {
+    await loaded(library);
+    chooseFolder(coverFiles());
+    await screen.findByText('Added covers for 4 books.');
+    fireEvent.click(screen.getByRole('button', { name: /^Shared Title\s*Dee Harrow/ }));
+    expect(screen.getByRole('region', { name: 'Shared Title' }).querySelector('img')).toBeNull();
+  });
+
+  it('keeps the covers across visits and drops them with the saved data', async () => {
+    const store = createIdbStore(new IDBFactory());
+    start(resolving(library), store);
+    choose();
+    await screen.findByRole('region', { name: 'Export' });
+    chooseFolder(coverFiles());
+    await screen.findByText('Added covers for 4 books.');
+    cleanup();
+
+    start(resolving(library), store);
+    await waitFor(() => expect(covers()).toHaveLength(4));
+    fireEvent.click(screen.getByRole('button', { name: 'Clear saved data' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete saved data' }));
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Your books' })).toBeNull());
+    expect((await store.loadCovers()).size).toBe(0);
+  });
+
+  it('says when the folder holds no covers for these books', async () => {
+    await loaded(library);
+    chooseFolder([new File(['x'], 'notes.txt')]);
+    await screen.findByText(/^No covers for your books in that folder/);
+    expect(covers()).toHaveLength(0);
+  });
+
+  it('asks for the database again when the highlights predate covers', async () => {
+    const legacy = {
+      ...library,
+      highlights: library.highlights.map((h) => ({ ...h, imageId: '' })),
+    };
+    await loaded(legacy);
+    chooseFolder(coverFiles());
+    await screen.findByText(/Load your KoboReader.sqlite file again/);
+  });
+
+  it('still shows the covers when the browser cannot save them', async () => {
+    const store: HighlightStore = {
+      ...createIdbStore(new IDBFactory()),
+      saveCovers: () => Promise.reject(new StoreError('full')),
+    };
+    start(resolving(library), store);
+    choose();
+    await screen.findByRole('region', { name: 'Export' });
+    chooseFolder(coverFiles());
+    await screen.findByText(/could not save them/);
+    expect(covers()).toHaveLength(4);
+  });
+
+  it("drops a forgotten book's cover and keeps the others", async () => {
+    const glass = library.highlights.find((h) => h.book === 'The Glass Orchard')?.bookId ?? '';
+    const store = createIdbStore(new IDBFactory());
+    await store.save(library);
+    await store.save({
+      ...library,
+      highlights: library.highlights.filter((h) => h.bookId !== glass),
+    });
+    start(resolving(library), store);
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    chooseFolder(coverFiles());
+    await screen.findByText('Added covers for 4 books.');
+
+    fireEvent.click(screen.getByRole('button', { name: /^The Glass Orchard/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget this book' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget book' }));
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    await waitFor(() => expect(covers()).toHaveLength(3));
+    expect(screen.queryByRole('button', { name: /^The Glass Orchard/ })).toBeNull();
+    const saved = await store.loadCovers();
+    expect(saved.size).toBe(3);
+    expect(saved.has(glass)).toBe(false);
+  });
+
+  it('revokes the cover URLs it replaces and the ones the saved data took along', async () => {
+    const revoked = vi.spyOn(URL, 'revokeObjectURL');
+    const sources = () => [...covers()].map((img) => img.getAttribute('src'));
+    await loaded(library);
+    chooseFolder(coverFiles());
+    await screen.findByText('Added covers for 4 books.');
+    const first = sources();
+
+    chooseFolder(coverFiles().slice(0, 3));
+    await waitFor(() => expect(sources()).not.toEqual(first));
+    await waitFor(() => {
+      for (const url of first) expect(revoked).toHaveBeenCalledWith(url);
+    });
+    const second = sources();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear saved data' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete saved data' }));
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Your books' })).toBeNull());
+    await waitFor(() => {
+      for (const url of second) expect(revoked).toHaveBeenCalledWith(url);
+    });
+  });
+
+  it('does not keep covers of highlights the browser could not save', async () => {
+    const store: HighlightStore = {
+      ...createIdbStore(new IDBFactory()),
+      save: () => Promise.reject(new StoreError('full')),
+    };
+    start(resolving(library), store);
+    choose();
+    await screen.findByRole('region', { name: 'Export' });
+    chooseFolder(coverFiles());
+    await screen.findByText(/could not save them/);
+    expect(covers()).toHaveLength(4);
+    expect((await store.loadCovers()).size).toBe(0);
+  });
+
+  it('shows no placeholders when only books not shown have covers', async () => {
+    const glass = library.highlights.find((h) => h.book === 'The Glass Orchard')?.bookId ?? '';
+    const store = createIdbStore(new IDBFactory());
+    await store.save({
+      ...library,
+      highlights: library.highlights.filter((h) => h.bookId !== glass),
+    });
+    await store.saveCovers(new Map([[glass, new Blob([new Uint8Array([0xff, 0xd8, 0xff])])]]));
+    start(resolving(library), store);
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    await act(() => new Promise((resolve) => setTimeout(resolve, 0)));
+    expect(covers()).toHaveLength(0);
+    expect(placeholders()).toHaveLength(0);
+  });
+
+  it('clears the covers message when another file is loaded', async () => {
+    await loaded(library);
+    chooseFolder(coverFiles());
+    await screen.findByText('Added covers for 4 books.');
+    choose();
+    await waitFor(() => expect(screen.queryByText('Added covers for 4 books.')).toBeNull());
+  });
+
+  it('says when a dropped folder cannot be read', async () => {
+    await loaded(library);
+    const entry = {
+      isFile: false,
+      isDirectory: true,
+      createReader: () => ({
+        readEntries: (_: unknown, reject: (error: Error) => void) => reject(new Error('no')),
+      }),
+    };
+    fireEvent.drop(screen.getByTestId('cover-drop-zone'), {
+      dataTransfer: { items: [{ kind: 'file', webkitGetAsEntry: () => entry }], files: [] },
+    });
+    await screen.findByText('The folder could not be read. Please try again.');
   });
 });

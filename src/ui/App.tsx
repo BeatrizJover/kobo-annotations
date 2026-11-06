@@ -1,15 +1,18 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { booksByImageId, readCovers } from '../covers/match';
 import type { KoboLibrary } from '../kobo/types';
 import { StoreError, type HighlightStore, type StoreErrorCode } from '../store/db';
 import { persistStorage } from '../store/persist';
 import { LoadError, type LoadErrorCode, type LoadLibrary, type Phase } from '../worker/protocol';
 import { BookView } from './BookView';
+import { CoverPicker } from './CoverPicker';
 import { DropZone } from './DropZone';
 import { ExportPanel } from './ExportPanel';
 import { FileHelp } from './FileHelp';
 import { Library } from './Library';
 import { ReadingIllustration } from './ReadingIllustration';
 import { SavedData } from './SavedData';
+import { useObjectUrls } from './useObjectUrls';
 
 type Task =
   | { status: 'idle' }
@@ -46,6 +49,17 @@ const STORE_MESSAGES: Record<StoreErrorCode, string> = {
     'Your saved highlights could not be read or updated in this browser. You can still export them.',
 };
 
+const COVER_MESSAGES = {
+  busy: 'Adding covers…',
+  unreadable: 'The folder could not be read. Please try again.',
+  none: 'No covers for your books in that folder. Choose the .kobo-images folder on your Kobo.',
+  reload:
+    'Your saved highlights are from before covers were supported. Load your KoboReader.sqlite file again, then add the covers.',
+  added: (count: number) =>
+    `Added covers for ${count.toLocaleString()} ${count === 1 ? 'book' : 'books'}.`,
+  unsaved: ' This browser could not save them, so they will be gone next time.',
+};
+
 const storeErrorCode = (error: unknown): StoreErrorCode =>
   error instanceof StoreError ? error.code : 'failed';
 
@@ -74,6 +88,12 @@ export function App({ load, store }: AppProps) {
   // Whether the browser holds saved highlights, which may differ from what is shown.
   const [hasSaved, setHasSaved] = useState(false);
   const [openBook, setOpenBook] = useState<string | null>(null);
+  const [covers, setCovers] = useState<ReadonlyMap<string, Blob>>(new Map());
+  const [coverTask, setCoverTask] = useState<{ busy: boolean; message: string | null }>({
+    busy: false,
+    message: null,
+  });
+  const coverUrls = useObjectUrls(covers);
   // Only Back returns focus to the book tile; a new file keeps it where the user is.
   const [returning, setReturning] = useState(false);
   // A file read before the saved data arrives wins over it.
@@ -94,6 +114,13 @@ export function App({ load, store }: AppProps) {
         setStoreError(storeErrorCode(error));
       },
     );
+    // Covers are optional, and a broken store is already reported by the load above.
+    store.loadCovers().then(
+      (saved) => {
+        if (active && saved.size > 0) setCovers((current) => new Map([...saved, ...current]));
+      },
+      () => undefined,
+    );
     return () => {
       active = false;
     };
@@ -109,6 +136,7 @@ export function App({ load, store }: AppProps) {
       return;
     }
     opened.current = true;
+    setCoverTask((current) => (current.busy ? current : { busy: false, message: null }));
     setOpenBook(null);
     setReturning(false);
     try {
@@ -128,6 +156,8 @@ export function App({ load, store }: AppProps) {
     try {
       await store.clear();
       setShown(null);
+      setCovers(new Map());
+      setCoverTask({ busy: false, message: null });
       setOpenBook(null);
       setReturning(false);
       setHasSaved(false);
@@ -143,6 +173,7 @@ export function App({ load, store }: AppProps) {
     try {
       const library = await store.forgetBook(bookId);
       setStoreError(null);
+      setCovers((current) => new Map([...current].filter(([id]) => id !== bookId)));
       // The user may have gone back and opened another book while this one was being deleted.
       setOpenBook((open) => (open === bookId ? null : open));
       if (library.highlights.length === 0) {
@@ -157,6 +188,37 @@ export function App({ load, store }: AppProps) {
     } catch (error) {
       setStoreError(storeErrorCode(error));
     }
+  };
+
+  const addCovers = async (pending: Promise<File[]>) => {
+    const highlights = shown?.library.highlights ?? [];
+    // Covers of highlights the browser could not save would outlive them.
+    const keep = shown?.saved ?? false;
+    setCoverTask({ busy: true, message: COVER_MESSAGES.busy });
+    let found: Map<string, Blob>;
+    try {
+      found = await readCovers(await pending, highlights);
+    } catch {
+      setCoverTask({ busy: false, message: COVER_MESSAGES.unreadable });
+      return;
+    }
+    if (found.size === 0) {
+      const known = booksByImageId(highlights).size > 0;
+      setCoverTask({ busy: false, message: known ? COVER_MESSAGES.none : COVER_MESSAGES.reload });
+      return;
+    }
+    setCovers((current) => new Map([...current, ...found]));
+    let message = COVER_MESSAGES.added(found.size);
+    if (!keep) {
+      message += COVER_MESSAGES.unsaved;
+    } else {
+      try {
+        await store.saveCovers(found);
+      } catch {
+        message += COVER_MESSAGES.unsaved;
+      }
+    }
+    setCoverTask({ busy: false, message });
   };
 
   const busy = task.status === 'loading';
@@ -203,7 +265,14 @@ export function App({ load, store }: AppProps) {
             hidden={openBook !== null}
             restoreFocus={returning}
             onOpen={setOpenBook}
-          />
+            covers={coverUrls}
+          >
+            <CoverPicker
+              busy={coverTask.busy}
+              message={coverTask.message}
+              onFiles={(files) => void addCovers(files)}
+            />
+          </Library>
           {openBook !== null && (
             <BookView
               library={shown.library}
@@ -213,6 +282,7 @@ export function App({ load, store }: AppProps) {
                 setReturning(true);
               }}
               onForget={shown.saved ? () => forget(openBook) : undefined}
+              cover={coverUrls.get(openBook)}
             />
           )}
         </>
