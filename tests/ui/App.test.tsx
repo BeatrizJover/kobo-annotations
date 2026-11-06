@@ -875,6 +875,53 @@ describe('App covers', () => {
     expect(covers()).toHaveLength(4);
   });
 
+  it("drops a forgotten book's cover and keeps the others", async () => {
+    const glass = library.highlights.find((h) => h.book === 'The Glass Orchard')?.bookId ?? '';
+    const store = createIdbStore(new IDBFactory());
+    await store.save(library);
+    await store.save({
+      ...library,
+      highlights: library.highlights.filter((h) => h.bookId !== glass),
+    });
+    start(resolving(library), store);
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    chooseFolder(coverFiles());
+    await screen.findByText('Added covers for 4 books.');
+
+    fireEvent.click(screen.getByRole('button', { name: /^The Glass Orchard/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget this book' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Forget book' }));
+    await screen.findByRole('heading', { level: 2, name: 'Your books' });
+    await waitFor(() => expect(covers()).toHaveLength(3));
+    expect(screen.queryByRole('button', { name: /^The Glass Orchard/ })).toBeNull();
+    const saved = await store.loadCovers();
+    expect(saved.size).toBe(3);
+    expect(saved.has(glass)).toBe(false);
+  });
+
+  it('revokes the cover URLs it replaces and the ones the saved data took along', async () => {
+    const revoked = vi.spyOn(URL, 'revokeObjectURL');
+    const sources = () => [...covers()].map((img) => img.getAttribute('src'));
+    await loaded(library);
+    chooseFolder(coverFiles());
+    await screen.findByText('Added covers for 4 books.');
+    const first = sources();
+
+    chooseFolder(coverFiles().slice(0, 3));
+    await waitFor(() => expect(sources()).not.toEqual(first));
+    await waitFor(() => {
+      for (const url of first) expect(revoked).toHaveBeenCalledWith(url);
+    });
+    const second = sources();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Clear saved data' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Delete saved data' }));
+    await waitFor(() => expect(screen.queryByRole('region', { name: 'Your books' })).toBeNull());
+    await waitFor(() => {
+      for (const url of second) expect(revoked).toHaveBeenCalledWith(url);
+    });
+  });
+
   it('says when a dropped folder cannot be read', async () => {
     await loaded(library);
     const entry = {
