@@ -42,6 +42,10 @@
   background: var(--color-accent);
 }
 
+.button-secondary:hover:not(:disabled) {
+  background: var(--color-secondary-tint);
+}
+
 .button:active:not(:disabled, .is-disabled),
 .button-plain:active:not(:disabled) {
   box-shadow: var(--shadow-offset-pressed) var(--shadow-offset-pressed) 0 var(--color-ink-soft);

@@ -161,7 +161,7 @@ describe('App', () => {
     expect(load).toHaveBeenCalledOnce();
   });
 
-  it('summarises the library without filters', async () => {
+  it('summarises the library without filters or other actions', async () => {
     await loaded(library);
     const books = new Set(library.highlights.map((h) => h.bookId)).size;
     screen.getByText(`Found ${library.highlights.length} highlights in ${books} books.`);
