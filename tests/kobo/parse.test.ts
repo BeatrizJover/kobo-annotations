@@ -177,6 +177,29 @@ describe('parseKobo books', () => {
   });
 });
 
+describe('parseKobo cover ids', () => {
+  const imageIdsOf = (rows: readonly Highlight[], author: string) =>
+    new Set(rows.filter((h) => h.author === author).map((h) => h.imageId));
+
+  it("reads each book's content.ImageId, blank when missing", () => {
+    expect(imageIdsOf(library.highlights, 'Ada Quill')).toEqual(
+      new Set(['file____mnt_onboard_Synthetic_Ada_Quill_-_The_Glass_Orchard_kepub_epub']),
+    );
+    expect(imageIdsOf(library.highlights, 'Eva Rumbo')).toEqual(new Set([STORE_ID]));
+    expect(imageIdsOf(library.highlights, 'Dee Harrow')).toEqual(new Set(['']));
+  });
+
+  it('reads databases without an ImageId column', () => {
+    const bytes = withSql(
+      readFixture('KoboReader.sqlite'),
+      'ALTER TABLE content DROP COLUMN ImageId',
+    );
+    const rows = parseKobo(SQL, bytes).highlights;
+    expect(rows).toHaveLength(library.highlights.length);
+    expect(rows.every((h) => h.imageId === '')).toBe(true);
+  });
+});
+
 describe('parseKobo unusual values', () => {
   const byText = (rows: Highlight[], start: string) => rows.find((h) => h.text.startsWith(start));
 

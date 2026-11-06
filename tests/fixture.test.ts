@@ -1,9 +1,9 @@
 // @vitest-environment node
 /// <reference types="node" />
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import initSqlJs from 'sql.js';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildFixture, FIXTURES } from '../scripts/make-fixture';
+import { buildCovers, buildFixture, FIXTURES } from '../scripts/make-fixture';
 
 type SqlJsStatic = initSqlJs.SqlJsStatic;
 type Database = initSqlJs.Database;
@@ -131,6 +131,11 @@ const EDGE_CASES: [string, string][] = [
     'SELECT 1 FROM Bookmark WHERE instr(Text, char(173)) > 0 AND instr(Text, char(160)) > 0',
   ],
   [
+    'an annotated book without an ImageId',
+    `SELECT 1 FROM content c WHERE ContentType = '6' AND ImageId IS NULL
+       AND EXISTS (SELECT 1 FROM Bookmark WHERE VolumeID = c.ContentID AND ${EXPORTED})`,
+  ],
+  [
     'whitespace-only text',
     `SELECT 1 FROM Bookmark WHERE ${EXPORTED} AND trim(Text, ' ' || char(9, 10)) = ''`,
   ],
@@ -154,6 +159,17 @@ afterAll(() => {
 describe('synthetic fixture', () => {
   it.each(Object.entries(FIXTURES))('%s regenerates byte-identically', (name, options) => {
     expect(buildFixture(SQL, options)).toEqual(readFixture(name));
+  });
+
+  it('regenerates the covers folder identically', () => {
+    const root = new URL('./fixtures/kobo-images/', import.meta.url);
+    const onDisk = readdirSync(root, { recursive: true, withFileTypes: true })
+      .filter((entry) => entry.isFile())
+      .map((entry) => {
+        const path = `${entry.parentPath}/${entry.name}`.slice(root.pathname.length);
+        return [path, new Uint8Array(readFileSync(new URL(path, root)))] as const;
+      });
+    expect(new Map(onDisk)).toEqual(buildCovers());
   });
 
   it.each(EDGE_CASES)('covers %s', (_, sql) => {

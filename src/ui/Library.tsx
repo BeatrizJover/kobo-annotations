@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import { listBooks, sortBooks, type BookSort } from '../kobo/books';
 import type { KoboLibrary } from '../kobo/types';
@@ -11,9 +12,13 @@ interface LibraryProps {
   /** Whether to refocus the last opened tile when shown again, i.e. after Back. */
   restoreFocus: boolean;
   onOpen: (bookId: string) => void;
+  /** Cover image URLs per book id. */
+  covers: ReadonlyMap<string, string>;
+  /** Shown between the sort control and the books. */
+  children?: ComponentChildren;
 }
 
-export function Library({ library, hidden, restoreFocus, onOpen }: LibraryProps) {
+export function Library({ library, hidden, restoreFocus, onOpen, covers, children }: LibraryProps) {
   const [sort, setSort] = useState<BookSort>('title-asc');
   const books = useMemo(() => listBooks(library.highlights), [library]);
   const history = useMemo(() => bookHistory(library), [library]);
@@ -36,10 +41,12 @@ export function Library({ library, hidden, restoreFocus, onOpen }: LibraryProps)
         Your books
       </h2>
       <SortControl sort={sort} onSort={setSort} />
+      {children}
       {/* Safari drops list semantics when list-style is none. */}
       <ul class="book-grid" role="list">
         {sorted.map((book) => {
           const { added = 0, offDevice = false } = history.get(book.id) ?? {};
+          const cover = covers.get(book.id);
           return (
             <li key={book.id}>
               <button
@@ -50,6 +57,16 @@ export function Library({ library, hidden, restoreFocus, onOpen }: LibraryProps)
                   onOpen(book.id);
                 }}
               >
+                {cover ? (
+                  <img class="book-cover" src={cover} alt="" />
+                ) : (
+                  // Keeps the grid even once some books have covers.
+                  covers.size > 0 && (
+                    <span class="book-cover is-placeholder" aria-hidden="true" dir="auto">
+                      {book.title || 'Untitled'}
+                    </span>
+                  )
+                )}
                 <span class="book-title" dir="auto">
                   {book.title || 'Untitled'}
                 </span>

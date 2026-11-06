@@ -11,6 +11,8 @@ export interface Highlight {
   bookId: string;
   book: string;
   author: string;
+  /** content.ImageId of the book, which names its cover files in `.kobo-images`; '' when missing. */
+  imageId: string;
   /** Title from the book's table of contents, '' when unresolved. */
   chapter: string;
   /** 1-based position of that title in the book's table of contents, null when unresolved. */

@@ -18,6 +18,7 @@ const make = (overrides: Partial<Highlight> = {}): Highlight => ({
   bookId: 'file:///mnt/onboard/book.epub',
   book: 'A Book',
   author: 'An Author',
+  imageId: '',
   chapter: 'One',
   chapterNo: 3,
   chapterIndex: 0,

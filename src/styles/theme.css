@@ -99,6 +99,7 @@
   --color-illustration-pink: var(--color-primary);
   --color-illustration-ink: var(--color-ink-soft);
   --color-illustration-accent: var(--color-accent);
+  --color-cover-placeholder: var(--color-illustration-cream);
 
   --font-body:
     'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
@@ -132,6 +133,8 @@
   --content-width: 48rem;
   --summary-width: 35rem;
   --book-tile-min: 13rem;
+  --cover-ratio: 2 / 3;
+  --book-view-cover-width: 10rem;
   --card-side-width: 2.5rem;
   --stroke-illustration: 2.5;
   --sort-menu-min: 6rem;

@@ -172,7 +172,7 @@ describe('createIdbStore', () => {
 
   it('lets another tab upgrade the schema, then reports itself unavailable', async () => {
     await store.save(library);
-    const upgrade = factory.open('kobo-annotations', 2);
+    const upgrade = factory.open('kobo-annotations', 3);
     const newer = await new Promise<IDBDatabase>((resolve, reject) => {
       upgrade.onsuccess = () => resolve(upgrade.result);
       upgrade.onerror = () => reject(upgrade.error ?? new Error('upgrade failed'));
@@ -185,5 +185,90 @@ describe('createIdbStore', () => {
   it('reports a browser without IndexedDB as unavailable', async () => {
     expect(typeof indexedDB).toBe('undefined');
     expect(await storeErrorCode(createIdbStore().load())).toBe('unavailable');
+  });
+});
+
+describe('createIdbStore covers', () => {
+  const jpeg = (marker: number) =>
+    new Blob([new Uint8Array([0xff, 0xd8, 0xff, marker])], { type: 'image/jpeg' });
+  const bytesOf = async (covers: Map<string, Blob>) =>
+    new Map(
+      await Promise.all(
+        [...covers].map(
+          async ([id, blob]) =>
+            [id, [blob.type, ...new Uint8Array(await blob.arrayBuffer())]] as const,
+        ),
+      ),
+    );
+  const bookIds = () => [...new Set(library.highlights.map((h) => h.bookId))];
+
+  it('saves covers, replaces them per book and loads them from a new connection', async () => {
+    const [first = '', second = ''] = bookIds();
+    await store.saveCovers(new Map([[first, jpeg(1)]]));
+    await store.saveCovers(
+      new Map([
+        [first, jpeg(2)],
+        [second, jpeg(3)],
+      ]),
+    );
+    expect(await bytesOf(await createIdbStore(factory).loadCovers())).toEqual(
+      new Map([
+        [first, ['image/jpeg', 0xff, 0xd8, 0xff, 2]],
+        [second, ['image/jpeg', 0xff, 0xd8, 0xff, 3]],
+      ]),
+    );
+  });
+
+  it('clears covers with the saved data', async () => {
+    await store.save(library);
+    await store.saveCovers(new Map(bookIds().map((id) => [id, jpeg(1)])));
+    await store.clear();
+    expect((await store.loadCovers()).size).toBe(0);
+  });
+
+  it("forgets a book's cover with the book", async () => {
+    await store.save(library);
+    const [gone = '', kept = ''] = bookIds();
+    await store.saveCovers(
+      new Map([
+        [gone, jpeg(1)],
+        [kept, jpeg(2)],
+      ]),
+    );
+    await store.forgetBook(gone);
+    expect([...(await store.loadCovers()).keys()]).toEqual([kept]);
+  });
+
+  it('reports a cover that cannot be read as a failure and saves none', async () => {
+    const [first = '', second = ''] = bookIds();
+    const broken = Object.assign(jpeg(1), { arrayBuffer: () => Promise.reject(new Error('gone')) });
+    const result = store.saveCovers(
+      new Map([
+        [first, jpeg(2)],
+        [second, broken],
+      ]),
+    );
+    expect(await storeErrorCode(result)).toBe('failed');
+    expect((await store.loadCovers()).size).toBe(0);
+  });
+
+  it('keeps the highlights of a version 1 database when adding the covers store', async () => {
+    const v1 = factory.open('kobo-annotations', 1);
+    v1.onupgradeneeded = () => {
+      v1.result.createObjectStore('highlights', { keyPath: 'id' }).createIndex('bookId', 'bookId');
+      v1.result.createObjectStore('imports', { keyPath: 'id' });
+      v1.transaction
+        ?.objectStore('highlights')
+        .put({ ...library.highlights[0], firstSeen: 1, lastSeen: 1, onDevice: true });
+    };
+    await new Promise((resolve, reject) => {
+      v1.onsuccess = () => {
+        v1.result.close();
+        resolve(undefined);
+      };
+      v1.onerror = () => reject(v1.error ?? new Error('open failed'));
+    });
+    expect(ids((await store.load()).highlights)).toEqual([library.highlights[0]?.id]);
+    expect((await store.loadCovers()).size).toBe(0);
   });
 });

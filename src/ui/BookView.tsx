@@ -29,9 +29,11 @@ interface BookViewProps {
   onBack: () => void;
   /** Present only when the shown highlights are the saved ones. */
   onForget?: () => Promise<void>;
+  /** URL of the book's cover image. */
+  cover?: string;
 }
 
-export function BookView({ library, bookId, onBack, onForget }: BookViewProps) {
+export function BookView({ library, bookId, onBack, onForget, cover }: BookViewProps) {
   const showColors = useMemo(() => usesColors(library), [library]);
   const importId = useMemo(() => newImportId(library), [library]);
   const own = useMemo(
@@ -110,6 +112,7 @@ export function BookView({ library, bookId, onBack, onForget }: BookViewProps) {
   return (
     <section class="book-view" aria-labelledby="book-title">
       {back}
+      {cover && <img class="book-view-cover" src={cover} alt="" />}
       <h2 id="book-title" ref={heading} tabIndex={-1} dir="auto">
         {first.book || 'Untitled'}
       </h2>

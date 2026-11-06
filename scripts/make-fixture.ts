@@ -1,5 +1,5 @@
 /// <reference types="node" />
-import { writeFileSync } from 'node:fs';
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import initSqlJs from 'sql.js';
 
 type SqlJsStatic = initSqlJs.SqlJsStatic;
@@ -17,6 +17,8 @@ interface Book {
   title: string;
   author: string;
   language: string;
+  /** content.ImageId; names the cover files in `.kobo-images`. */
+  imageId: string | null;
   /** Kobo stores the file path as the chapter title; `title` overrides it. */
   chapters: { file: string; title?: string | null }[];
   /** Table of contents in reading order (content type 899). */
@@ -54,6 +56,7 @@ const BOOKS: Book[] = [
     title: 'The Glass Orchard',
     author: 'Ada Quill',
     language: 'en',
+    imageId: 'file____mnt_onboard_Synthetic_Ada_Quill_-_The_Glass_Orchard_kepub_epub',
     chapters: [
       { file: 'Text/ch01.xhtml' },
       { file: 'Text/ch02.xhtml', title: '' },
@@ -72,6 +75,7 @@ const BOOKS: Book[] = [
     title: 'Shared Title',
     author: 'Bo Lantern, Cy Marsh',
     language: 'en',
+    imageId: 'file____mnt_onboard_Synthetic_Bo_Lantern,_Cy_Marsh_-_Shared_Title_kepub_epub',
     chapters: [
       { file: 'Text/part1.xhtml' },
       { file: 'Text/part2.xhtml' },
@@ -88,6 +92,7 @@ const BOOKS: Book[] = [
     title: 'Shared Title',
     author: 'Dee Harrow',
     language: 'en',
+    imageId: null,
     chapters: [{ file: 'Text/intro.xhtml' }],
     toc: [],
   },
@@ -96,6 +101,7 @@ const BOOKS: Book[] = [
     title: 'El Faro Apagado',
     author: 'Eva Rumbo',
     language: 'es',
+    imageId: STORE_ID,
     chapters: [{ file: 'Text/cap01.xhtml', title: null }, { file: 'Text/cap02.xhtml' }],
     toc: FARO_TOC,
   },
@@ -104,6 +110,7 @@ const BOOKS: Book[] = [
     title: 'كتاب تجريبي',
     author: 'مؤلف مجهول',
     language: 'ar',
+    imageId: 'file____mnt_onboard_Synthetic_rtl__1_sample_kepub_epub',
     chapters: [{ file: 'Text/fasl1.xhtml' }],
     toc: [{ file: 'Text/fasl1.xhtml', title: 'الفصل الأول', depth: 1 }],
   },
@@ -113,6 +120,7 @@ const BOOKS: Book[] = [
     title: 'El Faro Apagado',
     author: 'Eva Rumbo',
     language: 'es',
+    imageId: 'file____mnt_onboard_Synthetic_Eva_Rumbo_-_El_Faro_Apagado_kepub_epub',
     chapters: [{ file: 'Text/cap01.xhtml', title: null }, { file: 'Text/cap02.xhtml' }],
     toc: FARO_TOC,
   },
@@ -405,8 +413,8 @@ export function buildFixture(SQL: SqlJsStatic, { withColor }: { withColor: boole
   db.run('INSERT INTO DbVersion VALUES (176)');
 
   const insertContent = db.prepare(
-    `INSERT INTO content (ContentID, ContentType, MimeType, BookID, BookTitle, Title, Attribution,
-       VolumeIndex, ___UserID, Language) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO content (ContentID, ContentType, MimeType, BookID, BookTitle, ImageId, Title,
+       Attribution, VolumeIndex, ___UserID, Language) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   );
   for (const book of BOOKS) {
     insertContent.run([
@@ -415,6 +423,7 @@ export function buildFixture(SQL: SqlJsStatic, { withColor }: { withColor: boole
       'application/x-kobo-epub+zip',
       null,
       null,
+      book.imageId,
       book.title,
       book.author,
       -1,
@@ -428,6 +437,7 @@ export function buildFixture(SQL: SqlJsStatic, { withColor }: { withColor: boole
         'application/xhtml+xml',
         book.id,
         book.title,
+        null,
         chapter.title === undefined ? chapter.file : chapter.title,
         book.author,
         index,
@@ -530,6 +540,46 @@ export function buildFixture(SQL: SqlJsStatic, { withColor }: { withColor: boole
   return bytes;
 }
 
+// A 2×3 px solid JPEG; real covers never go into fixtures.
+const COVER_JPEG = Uint8Array.from(
+  Buffer.from(
+    '/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDABALDA4MChAODQ4SERATGCgaGBYWGDEjJR0oOjM9PDkzODdASFxOQERXRTc4UG1RV19iZ2hnPk1xeXBkeFxlZ2P/2wBDARESEhgVGC8aGi9jQjhCY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2NjY2P/wAARCAADAAIDASIAAhEBAxEB/8QAHwAAAQUBAQEBAQEAAAAAAAAAAAECAwQFBgcICQoL/8QAtRAAAgEDAwIEAwUFBAQAAAF9AQIDAAQRBRIhMUEGE1FhByJxFDKBkaEII0KxwRVS0fAkM2JyggkKFhcYGRolJicoKSo0NTY3ODk6Q0RFRkdISUpTVFVWV1hZWmNkZWZnaGlqc3R1dnd4eXqDhIWGh4iJipKTlJWWl5iZmqKjpKWmp6ipqrKztLW2t7i5usLDxMXGx8jJytLT1NXW19jZ2uHi4+Tl5ufo6erx8vP09fb3+Pn6/8QAHwEAAwEBAQEBAQEBAQAAAAAAAAECAwQFBgcICQoL/8QAtREAAgECBAQDBAcFBAQAAQJ3AAECAxEEBSExBhJBUQdhcRMiMoEIFEKRobHBCSMzUvAVYnLRChYkNOEl8RcYGRomJygpKjU2Nzg5OkNERUZHSElKU1RVVldYWVpjZGVmZ2hpanN0dXZ3eHl6goOEhYaHiImKkpOUlZaXmJmaoqOkpaanqKmqsrO0tba3uLm6wsPExcbHyMnK0tPU1dbX2Nna4uPk5ebn6Onq8vP09fb3+Pn6/9oADAMBAAIRAxEAPwClRRRXach//9k=',
+    'base64',
+  ),
+);
+
+type CoverSize = 'N3_LIBRARY_FULL' | 'N3_LIBRARY_GRID' | 'N3_FULL';
+
+const imageIdOf = (bookId: string) => BOOKS.find((book) => book.id === bookId)?.imageId ?? '';
+
+/**
+ * Files of the synthetic `.kobo-images` folder, keyed by path. Covers: every size, a smaller size
+ * only, the full size only behind a preferred one that is not an image, a book without ImageId,
+ * a store book, and files that match no book.
+ */
+export function buildCovers(): Map<string, Uint8Array<ArrayBuffer>> {
+  const files = new Map<string, Uint8Array<ArrayBuffer>>();
+  const add = (dir: string, imageId: string, size: CoverSize, bytes = COVER_JPEG) =>
+    files.set(`${dir}/${imageId} - ${size}.parsed`, bytes);
+  const orchard = imageIdOf(`${SIDELOAD}Ada Quill - The Glass Orchard.kepub.epub`);
+  for (const size of ['N3_LIBRARY_FULL', 'N3_LIBRARY_GRID', 'N3_FULL'] as const) {
+    add('12/34', orchard, size);
+  }
+  add(
+    '5/67',
+    imageIdOf(`${SIDELOAD}Bo Lantern, Cy Marsh - Shared Title.kepub.epub`),
+    'N3_LIBRARY_GRID',
+  );
+  add('89/1', STORE_ID, 'N3_LIBRARY_FULL');
+  add('89/1', imageIdOf(DUPLICATE_ID), 'N3_LIBRARY_FULL');
+  const rtl = imageIdOf(`${SIDELOAD}rtl #1 sample.kepub.epub`);
+  add('23/45', rtl, 'N3_LIBRARY_FULL', new TextEncoder().encode('not an image'));
+  add('23/45', rtl, 'N3_FULL');
+  add('23/45', 'file____mnt_onboard_Synthetic_Removed_Book_kepub_epub', 'N3_LIBRARY_FULL');
+  files.set('23/45/notes.txt', new TextEncoder().encode('not a cover'));
+  return files;
+}
+
 export const FIXTURES = {
   'KoboReader.sqlite': { withColor: true },
   'KoboReader-nocolor.sqlite': { withColor: false },
@@ -542,4 +592,12 @@ if (process.argv[1] === import.meta.filename) {
     writeFileSync(target, buildFixture(SQL, options));
     console.log(`Wrote ${target.pathname}`);
   }
+  const covers = new URL('../tests/fixtures/kobo-images/', import.meta.url);
+  rmSync(covers, { recursive: true, force: true });
+  for (const [path, bytes] of buildCovers()) {
+    const target = new URL(path, covers);
+    mkdirSync(new URL('.', target), { recursive: true });
+    writeFileSync(target, bytes);
+  }
+  console.log(`Wrote ${covers.pathname}`);
 }

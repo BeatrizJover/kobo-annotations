@@ -57,10 +57,10 @@ function toIsoUtc(value: Cell): string {
 }
 
 // Bookmark.ContentID matches a chapter directly or after dropping a `#anchor` suffix.
-const query = (hasColor: boolean) => `
+const query = (hasColor: boolean, hasImageId: boolean) => `
   SELECT b.BookmarkID, b.VolumeID, b.ContentID, b.Type, b.Text, b.Annotation,
          ${hasColor ? 'b.Color' : 'NULL'}, b.ChapterProgress, b.DateCreated,
-         book.Title, book.Attribution,
+         book.Title, book.Attribution, ${hasImageId ? 'book.ImageId' : 'NULL'},
          CASE WHEN exact.ContentID IS NOT NULL THEN exact.ContentID ELSE anchored.ContentID END,
          CASE WHEN exact.ContentID IS NOT NULL THEN exact.VolumeIndex ELSE anchored.VolumeIndex END
   FROM Bookmark b
@@ -72,9 +72,18 @@ const query = (hasColor: boolean) => `
     AND (b.Hidden IS NULL OR b.Hidden <> 'true')
     AND b.Text IS NOT NULL`;
 
-function readHighlights(db: Database, hasColor: boolean, resolve: ChapterResolver): Highlight[] {
+interface Columns {
+  hasColor: boolean;
+  hasImageId: boolean;
+}
+
+function readHighlights(
+  db: Database,
+  { hasColor, hasImageId }: Columns,
+  resolve: ChapterResolver,
+): Highlight[] {
   const highlights: Highlight[] = [];
-  const statement = db.prepare(query(hasColor));
+  const statement = db.prepare(query(hasColor, hasImageId));
   try {
     while (statement.step()) {
       const [
@@ -89,6 +98,7 @@ function readHighlights(db: Database, hasColor: boolean, resolve: ChapterResolve
         created,
         book,
         author,
+        imageId,
         file,
         index,
       ] = statement.get();
@@ -101,6 +111,7 @@ function readHighlights(db: Database, hasColor: boolean, resolve: ChapterResolve
         bookId,
         book: clean(book),
         author: clean(author),
+        imageId: text(imageId),
         ...resolve({
           bookId,
           contentId: text(contentId),
@@ -141,10 +152,12 @@ export function sortHighlights<T extends Highlight>(highlights: T[]): T[] {
 }
 
 function readLibrary(db: Database): KoboLibrary {
-  requireColumns(db, 'content', CONTENT_COLUMNS);
+  const hasImageId = requireColumns(db, 'content', CONTENT_COLUMNS).has('imageid');
   const hasColor = requireColumns(db, 'bookmark', BOOKMARK_COLUMNS).has('color');
 
-  const highlights = sortHighlights(dedupeBooks(readHighlights(db, hasColor, loadToc(db))));
+  const highlights = sortHighlights(
+    dedupeBooks(readHighlights(db, { hasColor, hasImageId }, loadToc(db))),
+  );
   return { highlights, hasColor };
 }
 
