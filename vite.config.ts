@@ -41,7 +41,7 @@ const pwa = VitePWA({
     start_url: BASE,
     scope: BASE,
     display: 'standalone',
-    theme_color: themeColor('color-accent'),
+    theme_color: themeColor('color-primary'),
     background_color: themeColor('color-bg'),
     icons: [
       { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
@@ -55,7 +55,7 @@ const pwa = VitePWA({
     ],
   },
   workbox: {
-    globPatterns: ['**/*.{html,js,css,wasm}'],
+    globPatterns: ['**/*.{html,js,css,wasm,woff2}'],
     maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
     cleanupOutdatedCaches: true,
   },

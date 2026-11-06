@@ -53,7 +53,12 @@ export function SavedData({ current, disabled, onClear }: SavedDataProps) {
             affected.
           </p>
           <div class="actions">
-            <button type="button" class="button" disabled={locked} onClick={() => void clear()}>
+            <button
+              type="button"
+              class="button button-secondary"
+              disabled={locked}
+              onClick={() => void clear()}
+            >
               Delete saved data
             </button>
             <button

@@ -1,15 +1,88 @@
 /* Design tokens: the only place for raw colors, fonts and sizes. */
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../assets/fonts/fraunces/fraunces-600-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'Fraunces';
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url('../assets/fonts/fraunces/fraunces-600-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('../assets/fonts/ibm-plex/plex-sans-400-500-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'IBM Plex Sans';
+  font-style: normal;
+  font-weight: 400 500;
+  font-display: swap;
+  src: url('../assets/fonts/ibm-plex/plex-sans-400-500-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../assets/fonts/ibm-plex/plex-mono-500-latin-ext.woff2') format('woff2');
+  unicode-range:
+    U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329,
+    U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C4, U+2113, U+2C60-2C7F,
+    U+A720-A7FF;
+}
+
+@font-face {
+  font-family: 'IBM Plex Mono';
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url('../assets/fonts/ibm-plex/plex-mono-500-latin.woff2') format('woff2');
+  unicode-range:
+    U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+/*
+ * Contrast rules (D-018): text, and text on any coloured fill, is ink; ink-soft only on
+ * bg/surface. Primary, secondary and accent are never text nor the only indicator on bg.
+ */
 :root {
-  --color-bg: #faf8f5;
-  --color-surface: #ffffff;
-  --color-text: #1f1d1a;
-  --color-text-muted: #5c5750;
-  --color-accent: #2f5d8a;
-  --color-border: #ddd7ce;
-  --color-on-accent: #ffffff;
-  --color-drop-over: #e8eff6;
-  --color-tag-new-bg: #e8eff6;
-  --color-selected-bg: #e8eff6;
+  --color-bg: #faf4ec;
+  --color-surface: #fffcf8;
+  --color-ink: #3b2148;
+  --color-ink-soft: #5b3a6b;
+  --color-primary: #f47ba6;
+  --color-primary-tint: #f9c9da;
+  --color-secondary: #7cc6f2;
+  --color-secondary-tint: #d6eefc;
+  --color-accent: #d46fd0;
+  --color-border: #d9c8d5;
   --color-disabled: #a9a39a;
   --color-error: #9b2c22;
   --color-error-bg: #fbecea;
@@ -20,19 +93,23 @@
   --color-highlight-green: #8fcf8f;
 
   --color-illustration-cream: #f6eadf;
-  --color-illustration-tint: #f9c9da;
-  --color-illustration-pink: #f47ba6;
-  --color-illustration-ink: #5b3a6b;
+  --color-illustration-tint: var(--color-primary-tint);
+  --color-illustration-pink: var(--color-primary);
+  --color-illustration-ink: var(--color-ink-soft);
 
-  --font-body: system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+  --font-body:
+    'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', Roboto, 'Noto Sans', sans-serif;
+  --font-display: 'Fraunces', Georgia, 'Times New Roman', serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, 'Cascadia Mono', 'DejaVu Sans Mono', monospace;
   --font-size-base: 1rem;
   --font-size-h1: 2rem;
   --font-size-h2: 1.25rem;
   --font-size-h3: 1rem;
   --font-size-small: 0.875rem;
-  --font-mono: ui-monospace, 'Cascadia Mono', 'DejaVu Sans Mono', monospace;
-  --font-weight-strong: 600;
+  --font-weight-strong: 500;
+  --font-weight-display: 600;
   --line-height-base: 1.5;
+  --line-height-heading: 1.2;
 
   --space-1: 0.25rem;
   --space-2: 0.5rem;
@@ -42,6 +119,11 @@
   --radius-2: 8px;
   --border-width: 1px;
   --border-width-strong: 2px;
+  --shadow-offset: 4px;
+  --shadow-offset-pressed: 2px;
+  --underline-offset: 0.2em;
+  --highlighter-start: 55%;
+  --icon-size: 1.75rem;
   --swatch-size: 0.875rem;
   --space-drop-zone: 3rem;
   --content-width: 48rem;
@@ -54,14 +136,27 @@
 body {
   margin: 0;
   background: var(--color-bg);
-  color: var(--color-text);
+  color: var(--color-ink);
   font-family: var(--font-body);
   font-size: var(--font-size-base);
   line-height: var(--line-height-base);
+  accent-color: var(--color-ink);
+}
+
+h1,
+h2,
+h3 {
+  font-family: var(--font-display);
+  font-weight: var(--font-weight-display);
+  line-height: var(--line-height-heading);
 }
 
 h1 {
   font-size: var(--font-size-h1);
+}
+
+strong {
+  font-weight: var(--font-weight-strong);
 }
 
 .app {

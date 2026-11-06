@@ -36,9 +36,9 @@ const rgb = (hex: string): Rgb => [1, 3, 5].map((i) => parseInt(hex.slice(i, i +
 
 // A page of text with one line highlighted, in unit coordinates.
 function artwork({ fullBleed, scale }: Variant): Shape[] {
-  const accent = rgb(themeColor('color-accent'));
+  const brand = rgb(themeColor('color-primary'));
   const page = rgb(themeColor('color-surface'));
-  const ink = rgb(themeColor('color-text-muted'));
+  const ink = rgb(themeColor('color-ink-soft'));
   const highlight = rgb(themeColor('color-highlight-yellow'));
   const s = (v: number) => 0.5 + (v - 0.5) * scale;
   const shape = (x0: number, y0: number, x1: number, y1: number, r: number, color: Rgb) => ({
@@ -51,7 +51,7 @@ function artwork({ fullBleed, scale }: Variant): Shape[] {
   });
   const line = (y: number, x1 = 0.67) => shape(0.33, y - 0.025, x1, y + 0.025, 0.025, ink);
   return [
-    { x0: 0, y0: 0, x1: 1, y1: 1, radius: fullBleed ? 0 : 0.18, color: accent },
+    { x0: 0, y0: 0, x1: 1, y1: 1, radius: fullBleed ? 0 : 0.18, color: brand },
     shape(0.24, 0.16, 0.76, 0.84, 0.05, page),
     shape(0.3, 0.405, 0.7, 0.505, 0.02, highlight),
     line(0.31),
