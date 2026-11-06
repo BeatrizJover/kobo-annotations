@@ -209,11 +209,14 @@ export function App({ load, store }: AppProps) {
     }
     setCovers((current) => new Map([...current, ...found]));
     let message = COVER_MESSAGES.added(found.size);
-    try {
-      if (!keep) throw new StoreError('unavailable');
-      await store.saveCovers(found);
-    } catch {
+    if (!keep) {
       message += COVER_MESSAGES.unsaved;
+    } else {
+      try {
+        await store.saveCovers(found);
+      } catch {
+        message += COVER_MESSAGES.unsaved;
+      }
     }
     setCoverTask({ busy: false, message });
   };
