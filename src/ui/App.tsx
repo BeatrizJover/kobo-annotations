@@ -76,8 +76,6 @@ export function App({ load, store }: AppProps) {
   const [openBook, setOpenBook] = useState<string | null>(null);
   // Only Back returns focus to the book tile; a new file keeps it where the user is.
   const [returning, setReturning] = useState(false);
-  // Bumped by "Check it here" so the library scrolls into view.
-  const [reveal, setReveal] = useState(0);
   // A file read before the saved data arrives wins over it.
   const opened = useRef(false);
   const fileInput = useRef<HTMLInputElement>(null);
@@ -161,12 +159,6 @@ export function App({ load, store }: AppProps) {
     }
   };
 
-  const showBooks = () => {
-    setOpenBook(null);
-    setReturning(false);
-    setReveal((count) => count + 1);
-  };
-
   const busy = task.status === 'loading';
 
   return (
@@ -174,7 +166,7 @@ export function App({ load, store }: AppProps) {
       <h1>
         Kobo <span class="highlighter">Annotations</span>
       </h1>
-      <p>Export your Kobo highlights to CSV. Your data never leaves this computer.</p>
+      <p>Hold on to every line you loved.</p>
 
       <div class="upload">
         <div>
@@ -205,12 +197,11 @@ export function App({ load, store }: AppProps) {
 
       {shown && (
         <>
-          <ExportPanel library={shown.library} onShowBooks={showBooks} />
+          <ExportPanel library={shown.library} />
           <Library
             library={shown.library}
             hidden={openBook !== null}
             restoreFocus={returning}
-            reveal={reveal}
             onOpen={setOpenBook}
           />
           {openBook !== null && (

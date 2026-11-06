@@ -38,6 +38,14 @@
   background: var(--color-surface);
 }
 
+.button:hover:not(.button-secondary, :disabled, .is-disabled) {
+  background: var(--color-accent);
+}
+
+.button-secondary:hover:not(:disabled) {
+  background: var(--color-secondary-tint);
+}
+
 .button:active:not(:disabled, .is-disabled),
 .button-plain:active:not(:disabled) {
   box-shadow: var(--shadow-offset-pressed) var(--shadow-offset-pressed) 0 var(--color-ink-soft);
@@ -113,6 +121,10 @@
   stroke: var(--color-illustration-pink);
 }
 
+.ill-heart .ill-heart-accent {
+  stroke: var(--color-illustration-accent);
+}
+
 .drop-zone {
   margin: 0;
   padding: var(--space-drop-zone) var(--space-3);
@@ -175,6 +187,16 @@
 
 .panel > p:first-child {
   margin-top: 0;
+}
+
+.export-summary {
+  max-width: var(--summary-width);
+  margin-inline: auto;
+  text-align: center;
+}
+
+.export-summary .actions {
+  justify-content: center;
 }
 
 .filters {
@@ -431,8 +453,7 @@
   margin-top: var(--space-3);
 }
 
-.help summary,
-.link-down {
+.help summary {
   color: var(--color-ink);
   font-weight: var(--font-weight-strong);
   text-decoration: underline var(--border-width-strong) var(--color-primary);
@@ -477,19 +498,10 @@
 }
 
 .button-plain:focus-visible,
-.link-down:focus-visible,
 .sort-field:focus-visible,
 .sort-option:focus-visible {
   outline: var(--border-width-strong) solid var(--color-ink);
   outline-offset: var(--border-width-strong);
-}
-
-.link-down {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-weight: var(--font-weight-strong);
 }
 
 .sort {
@@ -520,7 +532,7 @@
 
 .sort-field.is-active {
   border-color: var(--color-ink-soft);
-  background: var(--color-primary-tint);
+  background: var(--color-secondary-tint);
   font-weight: var(--font-weight-strong);
 }
 
@@ -546,6 +558,6 @@
 
 .sort-option[aria-pressed='true'] {
   border-color: var(--color-ink-soft);
-  background: var(--color-primary-tint);
+  background: var(--color-secondary-tint);
   font-weight: var(--font-weight-strong);
 }
