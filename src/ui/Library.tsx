@@ -10,12 +10,10 @@ interface LibraryProps {
   hidden: boolean;
   /** Whether to refocus the last opened tile when shown again, i.e. after Back. */
   restoreFocus: boolean;
-  /** Changes each time the user asks to see the books, which scrolls to and focuses the heading. */
-  reveal: number;
   onOpen: (bookId: string) => void;
 }
 
-export function Library({ library, hidden, restoreFocus, reveal, onOpen }: LibraryProps) {
+export function Library({ library, hidden, restoreFocus, onOpen }: LibraryProps) {
   const [sort, setSort] = useState<BookSort>('title-asc');
   const books = useMemo(() => listBooks(library.highlights), [library]);
   const history = useMemo(() => bookHistory(library), [library]);
@@ -29,16 +27,6 @@ export function Library({ library, hidden, restoreFocus, reveal, onOpen }: Libra
     if (opened.current?.isConnected) opened.current.focus();
     else heading.current?.focus();
   }, [hidden, restoreFocus, library]);
-
-  // Starts at the current value so a remount (after a clear) doesn't scroll by itself.
-  const revealed = useRef(reveal);
-  useEffect(() => {
-    if (reveal === revealed.current || !heading.current) return;
-    revealed.current = reveal;
-    const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    heading.current.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
-    heading.current.focus({ preventScroll: true });
-  }, [reveal]);
 
   if (books.length === 0) return null;
 

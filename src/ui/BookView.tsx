@@ -51,7 +51,7 @@ export function BookView({ library, bookId, onBack, onForget }: BookViewProps) {
   }, []);
 
   const back = (
-    <button ref={backButton} type="button" class="button-plain back" onClick={onBack}>
+    <button ref={backButton} type="button" class="button button-secondary" onClick={onBack}>
       <span aria-hidden="true">←</span> All books
     </button>
   );

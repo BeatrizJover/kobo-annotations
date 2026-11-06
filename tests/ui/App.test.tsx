@@ -69,10 +69,10 @@ function sortBy(name: 'Title' | 'Author', direction: 'A–Z' | 'Z–A') {
 }
 
 describe('App', () => {
-  it('renders the title, the privacy promise and the file help', async () => {
+  it('renders the title, the tagline and the file help', async () => {
     start(resolving(library));
     screen.getByRole('heading', { level: 1, name: 'Kobo Annotations' });
-    screen.getByText(/never leaves this computer/);
+    screen.getByText('Hold on to every line you loved.');
     screen.getByText('Where is my file?');
     screen.getByText('KoboReader_20261105.sqlite');
   });
@@ -168,6 +168,7 @@ describe('App', () => {
     expect(downloadButton().textContent).toBe('Download CSV');
     const panel = screen.getByRole('region', { name: 'Export' });
     expect(within(panel).queryByRole('checkbox')).toBeNull();
+    expect(within(panel).getAllByRole('button')).toEqual([downloadButton()]);
   });
 
   it('downloads every highlight with the dated filename', async () => {
@@ -358,22 +359,6 @@ describe('App saved library', () => {
     expect(sortField('Author').getAttribute('aria-expanded')).toBe('false');
   });
 
-  it('closes the open book and moves to the books from "Check it here"', async () => {
-    const scrolled = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
-    start(resolving(library), await savedStore());
-    fireEvent.click(await screen.findByRole('button', { name: /^The Glass Orchard/ }));
-    expect(screen.queryByRole('region', { name: 'Your books' })).toBeNull();
-
-    fireEvent.click(screen.getByRole('button', { name: /^Check it here/ }));
-    await waitFor(() =>
-      expect(document.activeElement).toBe(
-        screen.getByRole('heading', { level: 2, name: 'Your books' }),
-      ),
-    );
-    expect(screen.queryByRole('region', { name: 'The Glass Orchard' })).toBeNull();
-    expect(scrolled).toHaveBeenCalledOnce();
-  });
-
   it('closes the sort options when focus leaves the control', async () => {
     start(resolving(library), await savedStore());
     await screen.findByRole('heading', { level: 2, name: 'Your books' });
@@ -400,39 +385,6 @@ describe('App saved library', () => {
     fireEvent.keyDown(document.body, { key: 'Escape' });
     expect(author.getAttribute('aria-expanded')).toBe('false');
     expect(document.activeElement).toBe(author);
-  });
-
-  it.each([
-    [false, 'smooth'],
-    [true, 'auto'],
-  ] as const)('scrolls to the books with reduced motion %s as %s', async (reduce, behavior) => {
-    vi.spyOn(window, 'matchMedia').mockImplementation(
-      (query) => ({ matches: reduce && query.includes('reduce'), media: query }) as MediaQueryList,
-    );
-    const scrolled = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
-    start(resolving(library), await savedStore());
-    fireEvent.click(await screen.findByRole('button', { name: /^Check it here/ }));
-    await waitFor(() => expect(scrolled).toHaveBeenCalledWith({ behavior, block: 'start' }));
-  });
-
-  it('does not jump to the books again after a clear and a new file', async () => {
-    const scrolled = vi.spyOn(HTMLElement.prototype, 'scrollIntoView');
-    start(resolving(library), await savedStore());
-    fireEvent.click(await screen.findByRole('button', { name: /^Check it here/ }));
-    await waitFor(() => expect(scrolled).toHaveBeenCalledOnce());
-
-    fireEvent.click(screen.getByRole('button', { name: 'Clear saved data' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Delete saved data' }));
-    await waitFor(() => expect(screen.queryByRole('region', { name: 'Export' })).toBeNull());
-    choose();
-    await screen.findByRole('heading', { level: 2, name: 'Your books' });
-    await screen.findByText(/saved in this browser/);
-    // Preact runs effects after the next frame, so give the mount effect time to fire.
-    await act(() => new Promise((resolve) => setTimeout(resolve, 150)));
-    expect(scrolled).toHaveBeenCalledOnce();
-    expect(document.activeElement).not.toBe(
-      screen.getByRole('heading', { level: 2, name: 'Your books' }),
-    );
   });
 
   it('clears the saved data after confirmation', async () => {
