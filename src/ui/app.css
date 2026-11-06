@@ -8,6 +8,14 @@
   white-space: nowrap;
 }
 
+.highlighter {
+  padding-inline: var(--space-1);
+  background: linear-gradient(
+    transparent var(--highlighter-start),
+    var(--color-primary-tint) var(--highlighter-start)
+  );
+}
+
 .button,
 .button-plain {
   display: inline-block;
@@ -128,14 +136,6 @@
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: var(--border-width-strong);
-}
-
-.highlighter {
-  padding-inline: var(--space-1);
-  background: linear-gradient(
-    transparent var(--highlighter-start),
-    var(--color-primary-tint) var(--highlighter-start)
-  );
 }
 
 .drop-zone p {
@@ -315,7 +315,8 @@
 }
 
 .tab[aria-selected='true'] {
-  border-bottom-color: var(--color-primary);
+  border-bottom-color: var(--color-ink);
+  box-shadow: inset 0 calc(-1 * var(--border-width-strong)) 0 var(--color-primary);
   color: var(--color-ink);
   font-weight: var(--font-weight-strong);
 }

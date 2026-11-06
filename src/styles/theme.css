@@ -155,6 +155,10 @@ h1 {
   font-size: var(--font-size-h1);
 }
 
+strong {
+  font-weight: var(--font-weight-strong);
+}
+
 .app {
   max-width: var(--content-width);
   margin: 0 auto;
