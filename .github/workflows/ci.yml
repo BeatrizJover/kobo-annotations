@@ -11,6 +11,7 @@ permissions:
 jobs:
   check:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -27,6 +28,11 @@ jobs:
   e2e:
     needs: check
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The image ships the browsers and their system deps; its tag must match @playwright/test.
+    container:
+      image: mcr.microsoft.com/playwright:v1.64.1-noble
+      options: --user 1001
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -34,15 +40,8 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - id: playwright
-        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
-      - id: browsers
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
-      - if: steps.browsers.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium firefox webkit
-      - if: steps.browsers.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium firefox webkit
+      - name: Check the image matches @playwright/test
+        run: |
+          v=$(node -p "require('@playwright/test/package.json').version")
+          [ "$v" = "1.64.1" ] || { echo "::error::@playwright/test is $v, image is 1.64.1"; exit 1; }
       - run: npm run e2e
