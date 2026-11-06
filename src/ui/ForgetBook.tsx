@@ -51,7 +51,12 @@ export function ForgetBook({ onForget }: ForgetBookProps) {
         affected.
       </p>
       <div class="actions">
-        <button type="button" class="button" disabled={busy} onClick={() => void forget()}>
+        <button
+          type="button"
+          class="button button-secondary"
+          disabled={busy}
+          onClick={() => void forget()}
+        >
           Forget book
         </button>
         <button

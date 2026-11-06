@@ -40,6 +40,9 @@ export function DropZone({ busy, onFile, inputRef }: DropZoneProps) {
         pick(event.dataTransfer?.files);
       }}
     >
+      <svg class="drop-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false">
+        <path d="M12 15V4M7 9l5-5 5 5M5 15v4h14v-4" />
+      </svg>
       <p>Drag your KoboReader.sqlite file here, or</p>
       <label class={busy ? 'button is-disabled' : 'button'}>
         Choose file
