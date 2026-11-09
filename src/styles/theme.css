@@ -132,7 +132,7 @@
   --space-drop-zone: 3rem;
   --content-width: 48rem;
   --summary-width: 35rem;
-  --book-tile-min: 13rem;
+  --book-grid-columns: 4;
   --cover-ratio: 2 / 3;
   --book-view-cover-width: 10rem;
   --card-side-width: 2.5rem;

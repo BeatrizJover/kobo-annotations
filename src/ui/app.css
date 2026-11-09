@@ -258,7 +258,7 @@
 
 .book-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(var(--book-tile-min), 1fr));
+  grid-template-columns: repeat(var(--book-grid-columns), minmax(0, 1fr));
   gap: var(--space-3);
   margin: var(--space-3) 0 0;
   padding: 0;
@@ -274,7 +274,7 @@
   flex: 1;
   flex-direction: column;
   gap: var(--space-1);
-  padding: var(--space-3);
+  padding: var(--space-2);
   border: var(--border-width) solid var(--color-border);
   border-radius: var(--radius-2);
   background: var(--color-surface);
@@ -296,13 +296,16 @@
 .book-cover {
   display: block;
   width: 100%;
+  max-width: var(--book-view-cover-width);
   aspect-ratio: var(--cover-ratio);
+  margin-inline: auto;
   margin-bottom: var(--space-2);
   border-radius: var(--radius-1);
   object-fit: cover;
 }
 
 .book-cover.is-placeholder {
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
