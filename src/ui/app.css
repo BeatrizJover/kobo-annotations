@@ -298,6 +298,7 @@
   width: 100%;
   max-width: var(--book-view-cover-width);
   aspect-ratio: var(--cover-ratio);
+  margin-inline: auto;
   margin-bottom: var(--space-2);
   border-radius: var(--radius-1);
   object-fit: cover;
